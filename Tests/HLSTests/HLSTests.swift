@@ -3,7 +3,9 @@ import XCTest
 
 final class HLSTests: XCTestCase {
     func testParseTag() {
-        print(MemoryLayout<HlsTag>.size)
+        
+        print(MemoryLayout<PlaylistLine>.size)
+        
         let example = """
 #EXTM3U
 #EXT-X-VERSION:6
@@ -218,10 +220,7 @@ https://p-events-delivery.akamaized.net/3004qzusahnbjppuwydgjzsdyzsippar/vod3/06
 
 """
         example.enumerateLines { (line, _) in
-            guard !line.isEmpty, line.hasPrefix("#") else {
-                return
-            }
-            try! parse(line: line)
+            print(try! parse(line: line))
         }
     }
 

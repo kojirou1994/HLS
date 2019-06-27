@@ -1,4 +1,32 @@
+import Foundation
+
+internal enum Category {
+    case basic
+    case mediaSegment
+    case mediaPlaylist
+    case masterPlaylist
+    case mediaOrMasterPlaylist
+}
+
 internal enum _HlsTagType: String {
+    
+    var category: Category {
+        switch self {
+        case .m3u, .version:
+            return .basic
+        case .inf, .byteRange, .discontinuity, .key, .map,
+             .programDateTime, .dateRange, .gap, .bitrate:
+            return .mediaSegment
+        case .targetDuration, .mediaSequence, .discontinuitySequence,
+             .endlist, .playlistType, .iFramesOnly:
+            return .mediaPlaylist
+        case .media, .streamInf, .iFrameStreamInf, .sessionData, .sessionKey:
+            return .masterPlaylist
+        case .independentSegments, .start, .define:
+            return .mediaOrMasterPlaylist
+        }
+    }
+    
     case m3u = "EXTM3U"
     case version = "EXT-X-VERSION"
     case inf = "EXTINF"
@@ -25,6 +53,13 @@ internal enum _HlsTagType: String {
     case start = "EXT-X-START"
     case define = "EXT-X-DEFINE"
     
+    init(_ string: String) throws {
+        guard let v = _HlsTagType.init(rawValue: string) else {
+            throw HlsParserError.unsupportedTag(string)
+        }
+        self = v
+    }
+    
     internal enum Attribute {
         case none
         case single
@@ -32,10 +67,11 @@ internal enum _HlsTagType: String {
     }
     
     internal var attributeType: Attribute {
+        #warning("this list is not complete now")
         switch self {
-        case .m3u, .discontinuity, .independentSegments:
+        case .m3u, .discontinuity, .independentSegments, .endlist:
             return .none
-        case .version, .inf, .byteRange:
+        case .version, .inf, .byteRange, .targetDuration, .mediaSequence, .playlistType:
             return .single
         default:
             return .keyValue
@@ -51,9 +87,11 @@ internal enum _HlsTagType: String {
         }
     }
     
+    internal var minimalVersion: Int { 7 }
+    
 }
 
-protocol _HlsTag {
+protocol _HlsTag: Equatable {
     var type: _HlsTagType {get}
 }
 
@@ -72,34 +110,51 @@ protocol _HlsAttributeTag: _HlsTag {
 /// 4.4
 public enum HlsTag {
     
-    case m3u(BasicTags.M3U)
-    case version(BasicTags.Version)
-    case inf(MediaSegmentTags.Inf)
-    case byteRange(MediaSegmentTags.ByteRange)
-    case discontinuity(MediaSegmentTags.Discontinuity)
-    case key(MediaSegmentTags.Key)
-    case map(MediaSegmentTags.Map)
-    case programDateTime(MediaSegmentTags.ProgramDateTime)
-    case dateRange(MediaSegmentTags.DateRange)
-    case gap(MediaSegmentTags.Gap)
-    case bitrate(MediaSegmentTags.Bitrate)
-    case targetDuration(MediaPlaylistTags.TargetDuration)
-    case mediaSequence(MediaPlaylistTags.MediaSequence)
-    case discontinuitySequence(MediaPlaylistTags.DiscontinuitySequence)
-    case endlist(MediaPlaylistTags.Endlist)
-    case playlistType(MediaPlaylistTags.PlaylistType)
-    case iFramesOnly(MediaPlaylistTags.IFramesOnly)
-    case media(MasterPlaylistTags.Media)
-    case streamInf(MasterPlaylistTags.StreamInf)
-    case iFrameStreamInf(MasterPlaylistTags.IFrameStreamInf)
-    case sessionData(MasterPlaylistTags.SessionData)
-    case sessionKey(MasterPlaylistTags.SessionKey)
-    case independentSegments(MediaOrMasterPlaylistTags.IndependentSegments)
-    case start(MediaOrMasterPlaylistTags.Start)
-    case define(MediaOrMasterPlaylistTags.Define)
+    var category: Category {
+        switch self {
+        case .m3u, .version:
+            return .basic
+        case .inf, .byteRange, .discontinuity, .key, .map,
+             .programDateTime, .dateRange, .gap, .bitrate:
+            return .mediaSegment
+        case .targetDuration, .mediaSequence, .discontinuitySequence,
+             .endlist, .playlistType, .iFramesOnly:
+            return .mediaPlaylist
+        case .media, .streamInf, .iFrameStreamInf, .sessionData, .sessionKey:
+            return .masterPlaylist
+        case .independentSegments, .start, .define:
+            return .mediaOrMasterPlaylist
+        }
+    }
+
+    case m3u(M3U)
+    case version(Version)
+    case inf(Inf)
+    case byteRange(ByteRange)
+    case discontinuity(Discontinuity)
+    case key(Key)
+    case map(Map)
+    case programDateTime(ProgramDateTime)
+    case dateRange(DateRange)
+    case gap(Gap)
+    case bitrate(Bitrate)
+    case targetDuration(TargetDuration)
+    case mediaSequence(MediaSequence)
+    case discontinuitySequence(DiscontinuitySequence)
+    case endlist(Endlist)
+    case playlistType(PlaylistType)
+    case iFramesOnly(IFramesOnly)
+    case media(Media)
+    case streamInf(StreamInf)
+    case iFrameStreamInf(IFrameStreamInf)
+    case sessionData(SessionData)
+    case sessionKey(SessionKey)
+    case independentSegments(IndependentSegments)
+    case start(Start)
+    case define(Define)
     
     /// 4.4.1
-    public struct BasicTags {
+//    public struct BasicTags {
         
         /// 4.4.1.1
         public struct M3U: _HlsRawTag {
@@ -116,10 +171,10 @@ public enum HlsTag {
                 number = try string.toInt()
             }
         }
-    }
+//    }
     
     /// 4.4.2
-    public struct MediaSegmentTags {
+//    public struct MediaSegmentTags {
         
         /// 4.4.2.1
         public struct Inf: HlsSingleValueTag {
@@ -241,10 +296,10 @@ public enum HlsTag {
             
             public let bitrate: Int
         }
-    }
+//    }
     
     /// 4.4.3
-    public struct MediaPlaylistTags {
+//    public struct MediaPlaylistTags {
         
         /// 4.4.3.1
         public struct TargetDuration: HlsSingleValueTag {
@@ -304,14 +359,15 @@ public enum HlsTag {
             var type: _HlsTagType {.iFramesOnly}
             
         }
-    }
+//    }
     
     
     
     /// 4.4.4
-    public struct MasterPlaylistTags {
+//    public struct MasterPlaylistTags {
         /// 4.4.4.1
         public struct Media: _HlsAttributeTag {
+            
             init(_ dictionary: [String : String]) throws {
                 mediatype = try dictionary.get("TYPE")
                 uri = dictionary["URI"]
@@ -340,14 +396,14 @@ public enum HlsTag {
                     precondition(forced == nil)
                 }
                 if mediatype == .audio {
-                    precondition(channels != nil)
+//                    precondition(channels != nil)
                 }
             }
             
             var type: _HlsTagType {.media}
             
             public let mediatype: MediaType
-            public enum MediaType: String, CustomStringConvertible {
+            public enum MediaType: String, CustomStringConvertible, Equatable {
                 case audio = "AUDIO"
                 case video = "VIDEO"
                 case subtitles = "SUBTITLES"
@@ -361,7 +417,7 @@ public enum HlsTag {
             public let assocLanguage: String?
             public let name: String
             public let `default`: Default?
-            public enum Default: String, CustomStringConvertible {
+            public enum Default: String, CustomStringConvertible, Equatable {
                 case yes = "YES"
                 case no = "NO"
                 
@@ -370,7 +426,7 @@ public enum HlsTag {
             public let autoselect: Default?
             public let forced: Default?
             public let instreamID: InstreamID?
-            public enum InstreamID: RawRepresentable {
+            public enum InstreamID: RawRepresentable, Equatable {
                 public init?(rawValue: String) {
                     switch rawValue {
                     case "CC1":
@@ -501,10 +557,10 @@ public enum HlsTag {
         }
         
         
-    }
+//    }
     
     /// 4.4.5
-    public struct MediaOrMasterPlaylistTags {
+//    public struct MediaOrMasterPlaylistTags {
         /// 4.4.5.1
         public struct IndependentSegments: _HlsRawTag {
             var type: _HlsTagType {.independentSegments}
@@ -523,86 +579,136 @@ public enum HlsTag {
             public let precise: String?
         }
         
+        /// 4.4.5.3
         public enum Define: _HlsAttributeTag {
             init(_ dictionary: [String : String]) throws {
                 if let name = dictionary["NAME"] {
-                    self = .kv(name: name, value: try dictionary.get("VALUE"))
+                    self = .variable(name: name, value: try dictionary.get("VALUE"))
+                } else if let imp = dictionary["IMPORT"] {
+                    self = .import(imp)
                 } else {
-                    self = .import(try dictionary.get("IMPORT"))
+                    throw HlsParserError.noRequiredValue(key: "NAME or IMPORT")
                 }
             }
             
             var type: _HlsTagType {.define}
-            case kv(name: String, value: String)
+            case variable(name: String, value: String)
             case`import`(String)
         }
-    }
+//    }
     
 }
 
-public func parse(line: String) throws {
-    if !line.isEmpty, line.hasPrefix("#EXT") {
-        if let sep = line.firstIndex(of: ":") {
-            let tag = _HlsTagType.init(rawValue: String(line[line.index(after: line.startIndex)..<sep]))!
-            switch tag.attributeType {
-            case .keyValue:
-                var attributes: [String : String] = [:]
-                var currentIndex = line.index(after: sep)
-                while let attrSepIndex = line[currentIndex...].firstIndex(of: "=") {
-                    let key = line[currentIndex..<attrSepIndex]
-                    let value: Substring
-                    var valueStartIndex = line.index(after: attrSepIndex)
-                    var valueEndIndex: String.Index
-                    if line[valueStartIndex] == "\"" {
-                        // find next "
-                        valueStartIndex = line.index(after: valueStartIndex)
-                        valueEndIndex = line[valueStartIndex...].firstIndex(of: "\"")!
-                        value = line[valueStartIndex..<valueEndIndex]
-                        valueEndIndex = line.index(after: valueEndIndex)
-                    } else {
-                        valueEndIndex = line[valueStartIndex...].firstIndex(of: ",") ?? line.endIndex
-                        value = line[valueStartIndex..<valueEndIndex]
+//public func parse()
+
+
+public enum PlaylistLine {
+    
+    case ignored(IgnoredLine)
+    case unignored(UnignoredLine)
+    
+    public enum IgnoredLine {
+        ///Blank lines are ignored.
+        case blank
+        case comment(String)
+    }
+    
+    public enum UnignoredLine {
+        case tag(HlsTag)
+        case uri(String)
+    }
+}
+
+extension String {
+    internal var isBlank: Bool {
+        return allSatisfy{ $0.isWhitespace }
+    }
+}
+
+public func parse(line: String) throws -> PlaylistLine {
+    guard !line.isBlank else {
+        return .ignored(.blank)
+    }
+    if line.hasPrefix("#") {
+        if line.hasPrefix("#EXT") {
+            // tag
+            if let attributeSeperateIndex = line.firstIndex(of: ":") {
+                let tag = try _HlsTagType(String(line[line.index(after: line.startIndex)..<attributeSeperateIndex]))
+                switch tag.attributeType {
+                case .keyValue:
+                    var attributes: [String : String] = [:]
+                    var currentIndex = line.index(after: attributeSeperateIndex)
+                    while let attrSepIndex = line[currentIndex...].firstIndex(of: "=") {
+                        let key = line[currentIndex..<attrSepIndex]
+                        let value: Substring
+                        var valueStartIndex = line.index(after: attrSepIndex)
+                        var valueEndIndex: String.Index
+                        if line[valueStartIndex] == "\"" {
+                            // find next "
+                            valueStartIndex = line.index(after: valueStartIndex)
+                            valueEndIndex = line[valueStartIndex...].firstIndex(of: "\"")!
+                            value = line[valueStartIndex..<valueEndIndex]
+                            valueEndIndex = line.index(after: valueEndIndex)
+                        } else {
+                            valueEndIndex = line[valueStartIndex...].firstIndex(of: ",") ?? line.endIndex
+                            value = line[valueStartIndex..<valueEndIndex]
+                        }
+                        attributes[String(key)] =  String(value)
+                        if valueEndIndex == line.endIndex {
+                            break
+                        }
+                        currentIndex = line.index(after: valueEndIndex)
+                        // find next ,
                     }
-                    attributes[String(key)] =  String(value)
-                    if valueEndIndex == line.endIndex {
-                        break
+                    switch tag {
+                    case .media:
+                        return .unignored(.tag(.media(try .init(attributes))))
+                    case .streamInf:
+                        return .unignored(.tag(.streamInf(try .init(attributes))))
+                    case .iFrameStreamInf:
+                        return .unignored(.tag(.iFrameStreamInf(try .init(attributes))))
+                    default:
+                        fatalError()
                     }
-                    currentIndex = line.index(after: valueEndIndex)
-                    // find next ,
+                case .none:
+                    fatalError()
+                case .single:
+                    let str = String(line[line.index(after: attributeSeperateIndex)...])
+                    switch tag {
+                    case .version:
+                        return .unignored(.tag(.version(try .init(str))))
+                    case .targetDuration:
+                        return .unignored(.tag(.targetDuration(try .init(str))))
+                    case .mediaSequence:
+                        return .unignored(.tag(.mediaSequence(try .init(str))))
+                    case .playlistType:
+                        return .unignored(.tag(.playlistType(try .init(str))))
+                    case .inf:
+                        return .unignored(.tag(.inf(try .init(str))))
+                    default:
+                        fatalError()
+                    }
                 }
+                
+            } else {
+                let tag = _HlsTagType.init(rawValue: String(line[line.index(after: line.startIndex)...]))!
+                precondition(tag.attributeType == .none)
                 switch tag {
-                case .media:
-                    print(try HlsTag.MasterPlaylistTags.Media.init(attributes))
-                case .streamInf:
-                    print(try HlsTag.MasterPlaylistTags.StreamInf.init(attributes))
-                case .iFrameStreamInf:
-                    print(try HlsTag.MasterPlaylistTags.IFrameStreamInf.init(attributes))
-                default:
-                    break
-                }
-            case .none:
-                fatalError()
-            case .single:
-                let str = String(line[line.index(after: sep)...])
-                switch tag {
-                case .version:
-                    print(try HlsTag.BasicTags.Version.init(str))
+                case .m3u:
+                    return .unignored(.tag(.m3u(.init())))
+                case .independentSegments:
+                    return .unignored(.tag(.independentSegments(.init())))
+                case .endlist:
+                    return .unignored(.tag(.endlist(.init())))
                 default:
                     fatalError()
                 }
             }
-
         } else {
-            let tag = _HlsTagType.init(rawValue: String(line[line.index(after: line.startIndex)...]))!
-            precondition(tag.attributeType == .none)
-            switch tag {
-            case .m3u:
-                print(HlsTag.BasicTags.M3U.init())
-            case .independentSegments:
-                print(HlsTag.MediaOrMasterPlaylistTags.IndependentSegments.init())
-            default:
-                fatalError()
-            }
+            //comment
+            return .ignored(.comment(line[line.index(after: line.startIndex)...].trimmingCharacters(in: .whitespaces)))
         }
+    } else {
+        return .unignored(.uri(line.trimmingCharacters(in: .whitespacesAndNewlines)))
     }
 }
