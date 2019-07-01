@@ -55,7 +55,7 @@ internal enum _HlsTagType: String {
     
     init(_ string: String) throws {
         guard let v = _HlsTagType.init(rawValue: string) else {
-            throw HlsParserError.unsupportedTag(string)
+            throw HlsTagParseError.unsupportedTag(string)
         }
         self = v
     }
@@ -181,7 +181,8 @@ public enum HlsTag {
             init(_ string: String) throws {
                 if let sep = string.firstIndex(of: ",") {
                     duration = String(string[..<sep])
-                    title = String(string[string.index(after: sep)...])
+                    let title = String(string[string.index(after: sep)...])
+                    self.title = title.isBlank ? nil : title
                 } else {
                     duration = string
                     title = nil
@@ -365,7 +366,7 @@ public enum HlsTag {
     
     /// 4.4.4
 //    public struct MasterPlaylistTags {
-        /// 4.4.4.1
+    /// 4.4.4.1
         public struct Media: _HlsAttributeTag {
             
             init(_ dictionary: [String : String]) throws {
@@ -402,29 +403,96 @@ public enum HlsTag {
             
             var type: _HlsTagType {.media}
             
+            /// The value is an enumerated-string; valid strings are AUDIO, VIDEO,
+            /// SUBTITLES, and CLOSED-CAPTIONS.  This attribute is REQUIRED.
+            
+            /// Typically, closed-caption [CEA608] media is carried in the video
+            /// stream.  Therefore, an EXT-X-MEDIA tag with TYPE of CLOSED-
+            /// CAPTIONS does not specify a Rendition; the closed-caption media is
+            /// present in the Media Segments of every video Rendition.
             public let mediatype: MediaType
-            public enum MediaType: String, CustomStringConvertible, Equatable {
+            public enum MediaType: String, Equatable {
                 case audio = "AUDIO"
                 case video = "VIDEO"
                 case subtitles = "SUBTITLES"
                 case closedCaptions = "CLOSED-CAPTIONS"
-                
-                public var description: String {rawValue}
             }
+            
+            /// The value is a quoted-string containing a URI that identifies the
+            /// Media Playlist file.  This attribute is OPTIONAL; see
+            /// Section 4.4.4.2.1.  If the TYPE is CLOSED-CAPTIONS, the URI
+            /// attribute MUST NOT be present.
             public let uri: String?
+            /// The value is a quoted-string that specifies the group to which the
+            /// Rendition belongs.  See Section 4.4.4.1.1.  This attribute is
+            /// REQUIRED.
             public let groupID: String
+            /// The value is a quoted-string containing one of the standard Tags
+            /// for Identifying Languages [RFC5646], which identifies the primary
+            /// language used in the Rendition.  This attribute is OPTIONAL.
             public let language: String?
+            /// The value is a quoted-string containing a language tag [RFC5646]
+            /// that identifies a language that is associated with the Rendition.
+            /// An associated language is often used in a different role than the
+            /// language specified by the LANGUAGE attribute (e.g., written versus
+            /// spoken, or a fallback dialect).  This attribute is OPTIONAL.
+            ///
+            /// The LANGUAGE and ASSOC-LANGUAGE attributes can be used, for
+            /// example, to link Norwegian Renditions that use different spoken
+            /// and written languages.
             public let assocLanguage: String?
+            /// The value is a quoted-string containing a human-readable
+            /// description of the Rendition.  If the LANGUAGE attribute is
+            /// present, then this description SHOULD be in that language.  This
+            /// attribute is REQUIRED.
             public let name: String
+            /// The value is an enumerated-string; valid strings are YES and NO.
+            /// If the value is YES, then the client SHOULD play this Rendition of
+            /// the content in the absence of information from the user indicating
+            /// a different choice.  This attribute is OPTIONAL.  Its absence
+            /// indicates an implicit value of NO.
             public let `default`: Default?
-            public enum Default: String, CustomStringConvertible, Equatable {
+            public enum Default: String, Equatable {
                 case yes = "YES"
                 case no = "NO"
                 
-                public var description: String {rawValue}
+                var boolValue: Bool { self == .yes }
             }
+            /// The value is an enumerated-string; valid strings are YES and NO.
+            /// This attribute is OPTIONAL.  Its absence indicates an implicit
+            /// value of NO.  If the value is YES, then the client MAY choose to
+            /// play this Rendition in the absence of explicit user preference
+            /// because it matches the current playback environment, such as
+            /// chosen system language.
+            /// If the AUTOSELECT attribute is present, its value MUST be YES if
+            /// the value of the DEFAULT attribute is YES.
             public let autoselect: Default?
+            /// The value is an enumerated-string; valid strings are YES and NO.
+            /// This attribute is OPTIONAL.  Its absence indicates an implicit
+            /// value of NO.  The FORCED attribute MUST NOT be present unless the
+            /// TYPE is SUBTITLES.
+            ///
+            /// A value of YES indicates that the Rendition contains content that
+            /// is considered essential to play.  When selecting a FORCED
+            /// Rendition, a client SHOULD choose the one that best matches the
+            /// current playback environment (e.g., language).
+            ///
+            /// A value of NO indicates that the Rendition contains content that
+            /// is intended to be played in response to explicit user request.
             public let forced: Default?
+            /// The value is a quoted-string that specifies a Rendition within the
+            /// segments in the Media Playlist.  This attribute is REQUIRED if the
+            /// TYPE attribute is CLOSED-CAPTIONS, in which case it MUST have one
+            /// of the values: "CC1", "CC2", "CC3", "CC4", or "SERVICEn" where n
+            /// MUST be an integer between 1 and 63 (e.g., "SERVICE9" or
+            /// "SERVICE42").
+            ///
+            /// The values "CC1", "CC2", "CC3", and "CC4" identify a Line 21 Data
+            /// Services channel [CEA608].  The "SERVICE" values identify a
+            /// Digital Television Closed Captioning [CEA708] service block
+            /// number.
+            ///
+            /// For all other TYPE values, the INSTREAM-ID MUST NOT be specified.
             public let instreamID: InstreamID?
             public enum InstreamID: RawRepresentable, Equatable {
                 public init?(rawValue: String) {
@@ -462,7 +530,46 @@ public enum HlsTag {
                 case cc4
                 case service(Int)
             }
+            /// The value is a quoted-string containing one or more Uniform Type
+            /// Identifiers [UTI] separated by comma (,) characters.  This
+            /// attribute is OPTIONAL.  Each UTI indicates an individual
+            /// characteristic of the Rendition.
+            ///
+            /// A SUBTITLES Rendition MAY include the following characteristics:
+            /// "public.accessibility.transcribes-spoken-dialog",
+            /// "public.accessibility.describes-music-and-sound", and
+            /// "public.easy-to-read" (which indicates that the subtitles have
+            /// been edited for ease of reading).
+            ///
+            /// An AUDIO Rendition MAY include the following characteristic:
+            /// "public.accessibility.describes-video".
+            ///
+            /// The CHARACTERISTICS attribute MAY include private UTIs.
             public let characteristics: String?
+            /// The value is a quoted-string that specifies an ordered, slash-
+            /// separated ("/") list of parameters.
+            ///
+            /// If the TYPE attribute is AUDIO, then the first parameter is a
+            /// count of audio channels expressed as a decimal-integer, indicating
+            /// the maximum number of independent, simultaneous audio channels
+            /// present in any Media Segment in the Rendition.  For example, an
+            /// AC-3 5.1 Rendition would have a CHANNELS="6" attribute.
+            ///
+            /// If the TYPE attribute is AUDIO, then the second parameter
+            /// identifies the encoding of object-based audio used by the
+            /// Rendition.  This parameter is a comma-separated list of Audio
+            /// Object Coding Identifiers.  It is optional.  An Audio Object
+            /// Coding Identifier is a string containing characters from the set
+            /// [A..Z], [0..9], and '-'.  They are codec-specific.  A parameter
+            /// value of consisting solely of the dash character (0x2D) indicates
+            /// that the audio is not object-based.
+            ///
+            /// No other CHANNELS parameters are currently defined.
+            ///
+            /// All audio EXT-X-MEDIA tags SHOULD have a CHANNELS attribute.  If a
+            /// Master Playlist contains two Renditions with the same NAME encoded
+            /// with the same codec but a different number of channels, then the
+            /// CHANNELS attribute is REQUIRED; otherwise, it is OPTIONAL.
             public let channels: String?
         }
         
@@ -472,7 +579,7 @@ public enum HlsTag {
                 bandwidth = try dictionary.get("BANDWIDTH")
                 averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
                 codecs = try dictionary.get("CODECS")
-                resolution = dictionary["RESOLUTION"]
+                resolution = try dictionary["RESOLUTION"]?.toEnum()
                 frameRate = dictionary["FRAME-RATE"]
                 hdcpLevel = dictionary["HDCP-LEVEL"]
                 videoRange = try dictionary["VIDEO-RANGE"]?.toEnum()
@@ -487,7 +594,26 @@ public enum HlsTag {
             public let bandwidth: Int
             public let averageBandwidth: Int?
             public let codecs: String
-            public let resolution: String?
+            public let resolution: Resolution?
+            
+            public struct Resolution: RawRepresentable, Equatable {
+                let width: Int
+                let height: Int
+                
+                public init?(rawValue: String) {
+                    let parts = rawValue.split(separator: "x")
+                    guard parts.count == 2 else {
+                        return nil
+                    }
+                    guard let w = Int(parts[0]), let h = Int(parts[1]) else {
+                        return nil
+                    }
+                    width = w
+                    height = h
+                }
+                
+                public var rawValue: String { "\(width)x\(height)" }
+            }
             public let frameRate: String?
             public let hdcpLevel: String?
             public let videoRange: VideoRange?
@@ -511,7 +637,7 @@ public enum HlsTag {
                 bandwidth = try dictionary.get("BANDWIDTH")
                 averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
                 codecs = try dictionary.get("CODECS")
-                resolution = dictionary["RESOLUTION"]
+                resolution = try dictionary["RESOLUTION"]?.toEnum()
                 
                 hdcpLevel = dictionary["HDCP-LEVEL"]
                 videoRange = try dictionary["VIDEO-RANGE"]?.toEnum()
@@ -526,7 +652,7 @@ public enum HlsTag {
             public let bandwidth: Int
             public let averageBandwidth: Int?
             public let codecs: String
-            public let resolution: String?
+            public let resolution: StreamInf.Resolution?
             public let hdcpLevel: String?
             public let videoRange: VideoRange?
             public typealias VideoRange = StreamInf.VideoRange
@@ -587,7 +713,7 @@ public enum HlsTag {
                 } else if let imp = dictionary["IMPORT"] {
                     self = .import(imp)
                 } else {
-                    throw HlsParserError.noRequiredValue(key: "NAME or IMPORT")
+                    throw HlsTagParseError.noRequiredValue(key: "NAME or IMPORT")
                 }
             }
             
@@ -620,7 +746,7 @@ public enum PlaylistLine {
 }
 
 extension String {
-    internal var isBlank: Bool {
+    public var isBlank: Bool {
         return allSatisfy{ $0.isWhitespace }
     }
 }
