@@ -220,7 +220,7 @@ https://p-events-delivery.akamaized.net/3004qzusahnbjppuwydgjzsdyzsippar/vod3/06
 
 """
         example.enumerateLines { (line, _) in
-            print(try! parse(line: line))
+            print(try! PlaylistLine(line: line))
         }
     }
 

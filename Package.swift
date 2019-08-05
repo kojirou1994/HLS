@@ -11,13 +11,14 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.2.0"),
-        .package(path: "../Remuxer"),
+        .package(url: "git@github.com:kojirou1994/Remuxer.git", from: "0.0.1"),
         .package(url: "https://github.com/IBM-Swift/swift-html-entities.git", .branch("master")),
+        .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.1"),
     ],
     targets: [
         .target(
             name: "HLS",
-            dependencies: ["MediaTools", "Kwift", "MplsReader", "HTMLEntities"]),
+            dependencies: ["KwiftUtility", "MediaTools", "HTMLEntities", "URLFileManager"]),
         .testTarget(
             name: "HLSTests",
             dependencies: ["HLS"]),

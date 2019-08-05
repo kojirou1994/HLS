@@ -10,51 +10,76 @@ public enum PlaylistType {
     case master
 }
 
-public struct SubPlaylist {
+public struct Variant {
     public let uri: String
     public let streamInf: HlsTag.StreamInf
     public let videos: [HlsTag.Media]
     public let audios: [HlsTag.Media]
     public let subtitles: [HlsTag.Media]
     
-    public init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
+    fileprivate init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
         self.uri = uri
         self.streamInf = streamInf
-        if let id = streamInf.video {
-            videos = medias.filter { $0.mediatype == .video && $0.groupID == id }
-        } else {
-            videos = []
+        var videos = [HlsTag.Media]()
+        var audios = [HlsTag.Media]()
+        var subtitles = [HlsTag.Media]()
+        medias.forEach { (media) in
+            switch media.mediatype {
+            case .video:
+                if media.groupID == streamInf.video {
+                    videos.append(media)
+                }
+            case .audio:
+                if media.groupID == streamInf.audio {
+                    audios.append(media)
+                }
+            case .subtitles:
+                if media.groupID == streamInf.subtitles {
+                    subtitles.append(media)
+                }
+            default:
+                break
+            }
         }
-        
-        if let id = streamInf.audio {
-            audios = medias.filter { $0.mediatype == .audio && $0.groupID == id }
-        } else {
-            audios = []
-        }
-        
-        if let id = streamInf.subtitles {
-            subtitles = medias.filter { $0.mediatype == .subtitles && $0.groupID == id }
-        } else {
-            subtitles = []
-        }
+        self.videos = videos
+        self.audios = audios
+        self.subtitles = subtitles
     }
 }
 
 public struct MasterPlaylist {
+    
     public let url: URL
+    
     public let medias: [HlsTag.Media]
+    
     public let iFrameStreamInf: [HlsTag.IFrameStreamInf]
-    public let playlists: [SubPlaylist]
+    
+    public let variants: [Variant]
+    
+    fileprivate init(url: URL, medias: [HlsTag.Media], iFrameStreamInf: [HlsTag.IFrameStreamInf], variants: [(uri: String, streamInf: HlsTag.StreamInf)]) {
+        self.url = url
+        self.medias = medias
+        self.iFrameStreamInf = iFrameStreamInf
+        self.variants = variants.map {
+            .init(uri: $0.uri, streamInf: $0.streamInf, medias: medias)
+            
+        }
+    }
 }
 
 public struct GlobalProperty {
-    
+    #warning("unfinished")
 }
 
 public struct MediaPlaylist {
+    
     public let url: URL
+    
     public let version: Int
+    
     public let globalProperty: GlobalProperty
+    
     public let segments: [MediaSegment]
     
     public struct MediaSegment {
@@ -63,19 +88,7 @@ public struct MediaPlaylist {
     }
 }
 
-extension PlaylistLine {
-    var unignoredLine: UnignoredLine? {
-        
-        switch self {
-        case .unignored(let v):
-            return v
-        default:
-            return nil
-        }
-    }
-}
-
-enum PlaylistParseError: Error {
+public enum PlaylistParseError: Error {
     case duplicate(HlsTag)
     case unused(HlsTag)
 }
@@ -86,18 +99,18 @@ public enum Playlist {
     case master(MasterPlaylist)
     
     public init(url: URL) throws {
-        try self.init(data: .init(contentsOf: url), baseURL: url)
+        try self.init(data: .init(contentsOf: url), url: url)
     }
     
-    public init(data: Data, baseURL: URL) throws {
+    public init(data: Data, url: URL) throws {
         let lines = try data.split(separator: 0x0a)
-            .compactMap { try parse(line: String(decoding: $0, as: UTF8.self)).unignoredLine}
-        try self.init(lines: lines, baseURL: baseURL)
+            .compactMap { try PlaylistLine(line: String(decoding: $0, as: UTF8.self)).goodLine}
+        try self.init(lines: lines, url: url)
     }
     
-    public init(lines: [PlaylistLine.UnignoredLine], baseURL: URL) throws {
+    public init(lines: [PlaylistLine.GoodLine], url: URL) throws {
         precondition(!lines.isEmpty)
-        guard case .tag(.m3u(_)) = lines.first! else {
+        guard case .tag(.m3u) = lines.first! else {
             fatalError("No m3u tag!")
         }
         var type = _PlaylistType.unknown
@@ -142,7 +155,7 @@ public enum Playlist {
                 // MARK: - parse tag
                 switch tag {
                 /// basic tags
-                case .m3u(_):
+                case .m3u:
                     throw PlaylistParseError.duplicate(tag)
                 case .version(let v):
                     if version != nil {
@@ -158,7 +171,7 @@ public enum Playlist {
                 case .byteRange(let v):
                     #warning("not handle it now")
                     break
-                case .discontinuity(_):
+                case .discontinuity:
                     #warning("not handle it now")
                     break
                 case .key(_):
@@ -173,7 +186,7 @@ public enum Playlist {
                     programDateTime = v.dateTime
                 case .dateRange(let v):
                     #warning("not handle it now")
-                case .gap(_):
+                case .gap:
                     gap = true
                 case .bitrate(let v):
                     bitrate = v.bitrate
@@ -191,7 +204,7 @@ public enum Playlist {
                 case .discontinuitySequence(let v):
                     #warning("not handle it now")
                     break
-                case .endlist(_):
+                case .endlist:
                     if endlist != nil {
                         throw PlaylistParseError.duplicate(tag)
                     }
@@ -203,7 +216,7 @@ public enum Playlist {
                         throw PlaylistParseError.duplicate(tag)
                     }
                     playlistType = v
-                case .iFramesOnly(_):
+                case .iFramesOnly:
                     if iFramesOnly != nil {
                         throw PlaylistParseError.duplicate(tag)
                     }
@@ -219,7 +232,7 @@ public enum Playlist {
                 case .iFrameStreamInf(let v):
                     iFrameStreamInf.append(v)
                 // Media or Master Playlist Tags
-                case .independentSegments(_):
+                case .independentSegments:
                     independentSegments = true
                 default:
                     unusedTags.append(tag)
@@ -237,7 +250,9 @@ public enum Playlist {
                         fatalError("No inf")
                     }
 //                    print(infV)
-                    segments.append(.init(uri: uri, inf: infV))
+                    if uri != segments.last?.uri {
+                        segments.append(.init(uri: uri, inf: infV))
+                    }
                     inf = nil
                     programDateTime = nil
                     gap = false
@@ -254,15 +269,17 @@ public enum Playlist {
                 }
             }
         }
-        
+        #if DEBUG
         print(pt)
+        #endif
         switch pt {
         case .media:
             precondition(targetDuration != nil)
-            let mediaP = MediaPlaylist.init(url: baseURL, version: version!, globalProperty: .init(), segments: segments)
+            let mediaP = MediaPlaylist.init(url: url, version: version!, globalProperty: .init(), segments: segments)
             self = .media(mediaP)
         case .master:
-            let master = MasterPlaylist.init(url: baseURL, medias: media, iFrameStreamInf: iFrameStreamInf, playlists: playlists.map {SubPlaylist.init(uri: $0.uri, streamInf: $0.streamInf, medias: media)})
+            let master = MasterPlaylist.init(url: url, medias: media, iFrameStreamInf: iFrameStreamInf, variants: playlists)
+            
             self = .master(master)
         }
     }
