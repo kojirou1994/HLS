@@ -1,10 +1,6 @@
 
 extension String {
     
-    public var isBlank: Bool {
-        return allSatisfy{ $0.isWhitespace }
-    }
-    
     @usableFromInline
     internal func toInt() throws -> Int {
         guard let number = Int(self) else {
