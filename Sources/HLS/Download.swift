@@ -48,7 +48,6 @@ extension Playlist {
             try Mkvmerge(global: .init(quiet: false), output: outputPath.path, inputs: mediaP.segments.enumerated().map{Mkvmerge.Input(file: downloadTempPath.appendingPathComponent(URL(string: $0.element.uri)!.lastPathComponent).path, append: $0.offset != 0, options: [.noChapters])}).runAndWait(checkNonZeroExitCode: true)
         case .master(let masterP):
             guard let maxStream =
-//                masterP.variants.max(by: {$0.streamInf.bandwidth < $1.streamInf.bandwidth})!
                 masterP.variants.first(where: { ($0.streamInf.resolution?.width ?? 0) == width }) else {
                 throw HlsDownloadError.noValidStream
             }
@@ -94,7 +93,7 @@ extension Variant {
         }
     }
     
-    func downloadSubtitles(baseURL: URL, outputPrefix: URL) throws {
+    public func downloadSubtitles(baseURL: URL, outputPrefix: URL) throws {
         try subtitles.forEach { (subtitle) in
             
             //            if subtitle.name != "简体中文" { return [] }
