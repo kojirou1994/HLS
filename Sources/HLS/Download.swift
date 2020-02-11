@@ -3,7 +3,7 @@ import MediaUtility
 import MediaTools
 import Executable
 import KwiftUtility
-import HTMLEntities
+import HTMLString
 import URLFileManager
 
 extension URL {
@@ -42,10 +42,10 @@ extension Playlist {
             try mediaP.segments.map { mediaP.url.deletingLastPathComponent().appendingPathComponent($0.uri).absoluteString}
                 .joined(separator: "\n").write(toFile: linkFile, atomically: true, encoding: .utf8)
             let aria = Aria2BatchDownload.init(inputFile: linkFile, outputDir: downloadTempPath.path)
-            _ = try retry(body: try aria.runAndWait(checkNonZeroExitCode: true), onError: { (index, error) in
+            _ = try retry(body: try aria.runTSC(), onError: { (index, error) in
                 
             })
-            try Mkvmerge(global: .init(quiet: false), output: outputPath.path, inputs: mediaP.segments.enumerated().map{Mkvmerge.Input(file: downloadTempPath.appendingPathComponent(URL(string: $0.element.uri)!.lastPathComponent).path, append: $0.offset != 0, options: [.noChapters])}).runAndWait(checkNonZeroExitCode: true)
+            try Mkvmerge(global: .init(quiet: false), output: outputPath.path, inputs: mediaP.segments.enumerated().map{Mkvmerge.Input(file: downloadTempPath.appendingPathComponent(URL(string: $0.element.uri)!.lastPathComponent).path, append: $0.offset != 0, options: [.noChapters])}).runTSC()
         case .master(let masterP):
             guard let maxStream =
                 masterP.variants.first(where: { ($0.streamInf.resolution?.width ?? 0) == width }) else {
@@ -57,7 +57,7 @@ extension Playlist {
             try subP.download(outputPath: vStreamO, tempPath: tempPath)
             let aStreamOs = try maxStream.downloadAudios(baseURL: masterP.url, outputPrefix: vStreamO.deletingPathExtension(), tempPath: tempPath)
             // join
-            try Mkvmerge(global: .init(quiet: false), output: outputPath.path, inputs: ([vStreamO] + aStreamOs).map{Mkvmerge.Input.init(file: $0.path)}).runAndWait(checkNonZeroExitCode: true)
+            try Mkvmerge(global: .init(quiet: false), output: outputPath.path, inputs: ([vStreamO] + aStreamOs).map{Mkvmerge.Input.init(file: $0.path)}).runTSC()
             try maxStream.downloadSubtitles(baseURL: masterP.url, outputPrefix: outputPath.deletingPathExtension())
         }
     }
@@ -80,12 +80,12 @@ extension Variant {
                 try media.segments.map { media.url.deletingLastPathComponent().appendingPathComponent($0.uri).absoluteString}
                     .joined(separator: "\n").write(toFile: linkFile.path, atomically: true, encoding: .utf8)
                 let aria = Aria2BatchDownload.init(inputFile: linkFile.path, outputDir: downloadTempPath.path)
-                _ = try retry(body: try aria.runAndWait(checkNonZeroExitCode: true), onError: { (index, error) in
+                _ = try retry(body: try aria.runTSC(), onError: { (index, error) in
                     
                 })
                 let output = outputPrefix.appendingPathExtension("\(offset).\(audio.language ?? audio.name).mka")
                 try Mkvmerge(global: .init(quiet: true), output: output.path, inputs: media.segments.enumerated().map { Mkvmerge.Input.init(file: downloadTempPath.appendingPathComponent(URL(string: $0.element.uri)!.lastPathComponent).path, append: $0.offset != 0, options: [.language(tid: 0, language: audio.language ?? "und")]) })
-                    .runAndWait(checkNonZeroExitCode: true)
+                    .runTSC()
                 return output
             default:
                 fatalError("Unsupported segment extension: \(segmentExtension)")
@@ -137,7 +137,7 @@ extension Variant {
                             start = s
                             end = e
                         } else if needSub {
-                            text.append(line.htmlUnescape())
+                            text.append(line.removingHTMLEntities)
                             getSub = true
                         }
                     }
