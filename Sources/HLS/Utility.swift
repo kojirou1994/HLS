@@ -1,3 +1,4 @@
+import KwiftUtility
 
 extension String {
     
@@ -12,7 +13,15 @@ extension String {
     @usableFromInline
     internal func toEnum<T>() throws -> T where T: RawRepresentable, T.RawValue == String {
         guard let v = T(rawValue: self) else {
-            throw HlsTagParseError.invalidenumValue(self)
+            throw HlsTagParseError.invalidEnumValue(self)
+        }
+        return v
+    }
+
+    @usableFromInline
+    internal func toResolution() throws -> Resolution  {
+        guard let v = Resolution(self) else {
+            throw HlsTagParseError.invalidResolution(self)
         }
         return v
     }

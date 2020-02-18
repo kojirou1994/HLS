@@ -1,4 +1,5 @@
 import Foundation
+import KwiftUtility
 
 internal enum Category {
     case basic
@@ -579,7 +580,7 @@ public enum HlsTag {
                 bandwidth = try dictionary.get("BANDWIDTH")
                 averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
                 codecs = try dictionary.get("CODECS")
-                resolution = try dictionary["RESOLUTION"]?.toEnum()
+                resolution = try dictionary["RESOLUTION"]?.toResolution()
                 frameRate = dictionary["FRAME-RATE"]
                 hdcpLevel = dictionary["HDCP-LEVEL"]
                 videoRange = try dictionary["VIDEO-RANGE"]?.toEnum()
@@ -595,25 +596,6 @@ public enum HlsTag {
             public let averageBandwidth: Int?
             public let codecs: String
             public let resolution: Resolution?
-            
-            public struct Resolution: RawRepresentable, Equatable {
-                let width: Int
-                let height: Int
-                
-                public init?(rawValue: String) {
-                    let parts = rawValue.split(separator: "x")
-                    guard parts.count == 2 else {
-                        return nil
-                    }
-                    guard let w = Int(parts[0]), let h = Int(parts[1]) else {
-                        return nil
-                    }
-                    width = w
-                    height = h
-                }
-                
-                public var rawValue: String { "\(width)x\(height)" }
-            }
             public let frameRate: String?
             public let hdcpLevel: String?
             public let videoRange: VideoRange?
@@ -637,7 +619,7 @@ public enum HlsTag {
                 bandwidth = try dictionary.get("BANDWIDTH")
                 averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
                 codecs = try dictionary.get("CODECS")
-                resolution = try dictionary["RESOLUTION"]?.toEnum()
+                resolution = try dictionary["RESOLUTION"]?.toResolution()
                 
                 hdcpLevel = dictionary["HDCP-LEVEL"]
                 videoRange = try dictionary["VIDEO-RANGE"]?.toEnum()
@@ -652,7 +634,7 @@ public enum HlsTag {
             public let bandwidth: Int
             public let averageBandwidth: Int?
             public let codecs: String
-            public let resolution: StreamInf.Resolution?
+            public let resolution: Resolution?
             public let hdcpLevel: String?
             public let videoRange: VideoRange?
             public typealias VideoRange = StreamInf.VideoRange
