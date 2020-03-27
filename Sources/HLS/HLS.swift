@@ -395,7 +395,7 @@ public enum HlsTag {
                     precondition(autoselect! == .yes)
                 }
                 if mediatype != .subtitles {
-                    precondition(forced == nil)
+//                    precondition(forced == nil)
                 }
                 if mediatype == .audio {
 //                    precondition(channels != nil)
