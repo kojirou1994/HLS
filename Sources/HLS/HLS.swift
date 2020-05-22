@@ -38,7 +38,7 @@ internal enum _HlsTagType: String {
     case define = "EXT-X-DEFINE"
     
     internal init(_ string: String) throws {
-        guard let v = _HlsTagType.init(rawValue: string) else {
+        guard let v = _HlsTagType(rawValue: string) else {
             throw HlsTagParseError.unsupportedTag(string)
         }
         self = v
@@ -72,7 +72,8 @@ internal enum _HlsTagType: String {
         switch self {
         case .m3u, .discontinuity, .independentSegments, .endlist:
             return .none
-        case .version, .inf, .byteRange, .targetDuration, .mediaSequence, .playlistType:
+        case .version, .inf, .byteRange, .targetDuration, .mediaSequence,
+             .playlistType, .programDateTime:
             return .single
         default:
             return .keyValue
@@ -801,6 +802,8 @@ public enum PlaylistLine {
                             self = .good(.tag(.inf(try .init(str))))
                         case .byteRange:
                             self = .good(.tag(.byteRange(try .init(str))))
+                        case .programDateTime:
+                          self = .good(.tag(.programDateTime(try .init(str))))
                         default:
                             fatalError()
                         }
