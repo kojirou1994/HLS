@@ -103,8 +103,9 @@ public enum Playlist {
     }
     
     public init(data: Data, url: URL) throws {
-        let lines = try data.split(separator: 0x0a)
-            .compactMap { try PlaylistLine(line: String(decoding: $0, as: UTF8.self)).goodLine}
+        let lines = data.split(separator: 0x0a)
+            .compactMap { try? PlaylistLine(line: String(decoding: $0, as: UTF8.self))}
+            .compactMap(\.goodLine)
         try self.init(lines: lines, url: url)
     }
     
