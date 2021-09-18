@@ -1,4 +1,5 @@
 import Foundation
+import KwiftExtension
 
 internal enum _PlaylistType {
     case unknown
@@ -68,8 +69,9 @@ public struct MasterPlaylist {
     }
 }
 
+#warning("unfinished")
 public struct GlobalProperty {
-    #warning("unfinished")
+  public let map: HlsTag.Map?
 }
 
 public struct MediaPlaylist {
@@ -110,10 +112,13 @@ public enum Playlist {
     }
     
     public init(lines: [PlaylistLine.GoodLine], url: URL) throws {
-        precondition(!lines.isEmpty)
-        guard case .tag(.m3u) = lines.first! else {
-            fatalError("No m3u tag!")
+      try lines.notEmpty()
+      try preconditionOrThrow({
+        switch lines[0] {
+        case .tag(.m3u): return true
+        default: return false
         }
+      }(), "No first line m3u tag!")
         var type = _PlaylistType.unknown
         out: for line in lines {
             switch line {
@@ -276,7 +281,9 @@ public enum Playlist {
         switch pt {
         case .media:
             precondition(targetDuration != nil)
-            let mediaP = MediaPlaylist.init(url: url, version: version!, globalProperty: .init(), segments: segments)
+            let mediaP = MediaPlaylist(
+              url: url, version: version!,
+              globalProperty: .init(map: map), segments: segments)
             self = .media(mediaP)
         case .master:
             let master = MasterPlaylist.init(url: url, medias: media, iFrameStreamInf: iFrameStreamInf, variants: playlists)
