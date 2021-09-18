@@ -661,8 +661,23 @@ public enum HlsTag: Equatable {
   }
 
   /// 4.4.4.5
-  public struct SessionKey {
+  public struct SessionKey: _HlsAttributeTag {
+    init(_ dictionary: [String : String]) throws {
+      method = try dictionary.get("METHOD")
+      fatalError()
+    }
 
+    var type: _HlsTagType {.sessionKey}
+
+    public let method: Method
+    public enum Method: String {
+      case aes128 = "AES-128"
+      case sampleAES = "SAMPLE-AES"
+    }
+    public let uri: String?
+    public let iv: String
+    public let KEYFORMAT: String?
+    public let KEYFORMATVERSIONS: String?
   }
 
 
