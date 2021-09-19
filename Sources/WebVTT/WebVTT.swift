@@ -6,7 +6,10 @@ import HTMLString
 public enum WebVTT {
   public static func convert(webVttIn fileURL: URL) throws -> [TimedText] {
     try autoreleasepool {
-      try convert(webVtt: String(contentsOf: fileURL).split(separator: "\n"))
+      try convert(webVtt:
+        String(contentsOf: fileURL)
+        .replacingOccurrences(of: "\r\n", with: "\n")
+        .split(separator: "\n", omittingEmptySubsequences: false))
     }
   }
 
@@ -15,12 +18,12 @@ public enum WebVTT {
     var needSub = false
     var start: Timestamp?
     var end: Timestamp?
-    var text = [String]()
+    var subtitleLines = [Substring]()
     var getSub = false
 
     func appendSub() {
       if getSub {
-        let subtitle = TimedText(start: start!, end: end!, text: text.joined(separator: "\n"))
+        let subtitle = TimedText(start: start!, end: end!, text: subtitleLines.joined(separator: "\n"))
 
         if let last = result.last, subtitle == last {
           #if DEBUG
@@ -31,12 +34,13 @@ public enum WebVTT {
         }
         getSub = false
         needSub = false
-        text = []
+        subtitleLines = []
       }
     }
 
     for line in lines {
       if line.isBlank {
+        appendSub()
         continue
       }
       let parts = line.split(separator: " ")
@@ -47,9 +51,7 @@ public enum WebVTT {
         start = s
         end = e
       } else if needSub {
-        var cleanLine = String(line)
-        cleanLine.removeHTMLEntities()
-        text.append(cleanLine)
+        subtitleLines.append(String(line).removingHTMLEntities.trim{$0.isWhitespace || $0.isNewline})
         getSub = true
       }
     }
