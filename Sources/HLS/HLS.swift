@@ -226,21 +226,37 @@ public enum HlsTag: Equatable {
   public struct Key: _HlsAttributeTag {
     init(_ dictionary: [String : String]) throws {
       method = try dictionary.get("METHOD")
-      fatalError()
+      uri = dictionary["URI"]
+      iv = dictionary["IV"]
+      keyFormat = dictionary["KEYFORMAT"]
+      keyFormatVersions = dictionary["KEYFORMATVERSIONS"]
+
+      switch method {
+      case .none:
+        // An encryption method of NONE means that Media Segments are not encrypted.  If the encryption method is NONE, other attributes MUST NOT be present.
+        precondition(uri == nil)
+        precondition(iv == nil)
+        precondition(keyFormat == nil)
+        precondition(keyFormatVersions == nil)
+      case .aes128, .sampleAES:
+        // This attribute is REQUIRED unless the METHOD is NONE.
+        precondition(uri != nil)
+      }
+
     }
 
     var type: _HlsTagType {.key}
 
     public let method: Method
-    public enum Method: String {
+    public enum Method: String, CaseIterable {
       case none = "NONE"
       case aes128 = "AES-128"
       case sampleAES = "SAMPLE-AES"
     }
     public let uri: String?
-    public let iv: String
-    public let KEYFORMAT: String?
-    public let KEYFORMATVERSIONS: String?
+    public let iv: String?
+    public let keyFormat: String?
+    public let keyFormatVersions: String?
   }
 
   /// 4.4.2.5
@@ -345,7 +361,7 @@ public enum HlsTag: Equatable {
   }
 
   /// 4.4.3.5
-  public enum PlaylistType: String, HlsSingleValueTag {
+  public enum PlaylistType: String, HlsSingleValueTag, CaseIterable {
     var type: _HlsTagType {.playlistType}
 
     case event = "EVENT"
@@ -364,12 +380,25 @@ public enum HlsTag: Equatable {
   }
   //    }
 
+  // MARK: MasterPlaylistTags
 
-
-  /// 4.4.4
-  //    public struct MasterPlaylistTags {
   /// 4.4.4.1
   public struct Media: _HlsAttributeTag {
+    public init(mediatype: MediaType, uri: String?) {
+      self.mediatype = mediatype
+      self.uri = uri
+      self.groupID = ""
+      self.language = nil
+      self.assocLanguage = nil
+      self.name = ""
+      self.default = nil
+      self.autoselect = nil
+      self.forced = nil
+      self.instreamID = nil
+      self.characteristics = nil
+      self.channels = nil
+    }
+
 
     init(_ dictionary: [String : String]) throws {
       mediatype = try dictionary.get("TYPE")
@@ -413,7 +442,7 @@ public enum HlsTag: Equatable {
     /// CAPTIONS does not specify a Rendition; the closed-caption media is
     /// present in the Media Segments of every video Rendition.
     public let mediatype: MediaType
-    public enum MediaType: String, Equatable {
+    public enum MediaType: String, Equatable, CaseIterable {
       case audio = "AUDIO"
       case video = "VIDEO"
       case subtitles = "SUBTITLES"
@@ -454,7 +483,7 @@ public enum HlsTag: Equatable {
     /// a different choice.  This attribute is OPTIONAL.  Its absence
     /// indicates an implicit value of NO.
     public let `default`: Default?
-    public enum Default: String, Equatable {
+    public enum Default: String, Equatable, CaseIterable {
       case yes = "YES"
       case no = "NO"
 
@@ -496,7 +525,11 @@ public enum HlsTag: Equatable {
     ///
     /// For all other TYPE values, the INSTREAM-ID MUST NOT be specified.
     public let instreamID: InstreamID?
-    public enum InstreamID: RawRepresentable, Equatable {
+    public enum InstreamID: RawRepresentable, Equatable, CaseIterable {
+      public static var allCases: [Self] {
+        [.cc1, .cc2, .cc3, .cc4, .service(0)]
+      }
+
       public init?(rawValue: String) {
         switch rawValue {
         case "CC1":
@@ -577,6 +610,20 @@ public enum HlsTag: Equatable {
 
   /// 4.4.4.2
   public struct StreamInf: _HlsAttributeTag {
+    public init(bandwidth: Int) {
+      self.bandwidth = bandwidth
+      self.averageBandwidth = nil
+      self.codecs = ""
+      self.resolution = nil
+      self.frameRate = nil
+      self.hdcpLevel = nil
+      self.videoRange = nil
+      self.audio = nil
+      self.video = nil
+      self.subtitles = nil
+      self.closedCaptions = nil
+    }
+
     init(_ dictionary: [String : String]) throws {
       bandwidth = try dictionary.get("BANDWIDTH")
       averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
@@ -600,7 +647,7 @@ public enum HlsTag: Equatable {
     public let frameRate: String?
     public let hdcpLevel: String?
     public let videoRange: VideoRange?
-    public enum VideoRange: String {
+    public enum VideoRange: String, CaseIterable {
       case sdr = "SDR"
       case pq = "PQ"
     }
@@ -670,7 +717,7 @@ public enum HlsTag: Equatable {
     var type: _HlsTagType {.sessionKey}
 
     public let method: Method
-    public enum Method: String {
+    public enum Method: String, CaseIterable {
       case aes128 = "AES-128"
       case sampleAES = "SAMPLE-AES"
     }
@@ -722,8 +769,6 @@ public enum HlsTag: Equatable {
   //    }
 
 }
-
-//public func parse()
 
 
 public enum PlaylistLine {
@@ -797,6 +842,8 @@ public enum PlaylistLine {
               self = .good(.tag(.iFrameStreamInf(try .init(attributes))))
             case .map:
               self = .good(.tag(.map(try .init(attributes))))
+            case .key:
+              self = .good(.tag(.key(try .init(attributes))))
             default:
               fatalError()
             }

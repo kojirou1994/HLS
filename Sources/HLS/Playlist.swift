@@ -18,7 +18,7 @@ public struct Variant {
   public let audios: [HlsTag.Media]
   public let subtitles: [HlsTag.Media]
 
-  fileprivate init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
+  public init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
     self.uri = uri
     self.streamInf = streamInf
     var videos = [HlsTag.Media]()
@@ -72,6 +72,8 @@ public struct MasterPlaylist {
 #warning("unfinished")
 public struct GlobalProperty {
   public let map: HlsTag.Map?
+  #warning("non standard")
+  public let key: HlsTag.Key?
 }
 
 public struct MediaPlaylist {
@@ -145,6 +147,8 @@ public enum Playlist {
     var endlist: Bool?
     var inf: HlsTag.Inf?
     var map: HlsTag.Map?
+#warning("non standard")
+    var key: HlsTag.Key?
     var gap: Bool = false
     var programDateTime: String?
     var bitrate: Int?
@@ -180,9 +184,12 @@ public enum Playlist {
         case .discontinuity:
 #warning("not handle it now")
           break
-        case .key(_):
-#warning("not handle it now")
-          break
+        case .key(let v):
+#warning("multiple key not supported yet")
+          if programDateTime != nil {
+            throw PlaylistParseError.duplicate(.key(v))
+          }
+          key = v
         case .map(let v):
           map = v
         case .programDateTime(let v):
@@ -283,7 +290,7 @@ public enum Playlist {
       precondition(targetDuration != nil)
       let mediaP = MediaPlaylist(
         url: url, version: version!,
-        globalProperty: .init(map: map), segments: segments)
+        globalProperty: .init(map: map, key: key), segments: segments)
       self = .media(mediaP)
     case .master:
       let master = MasterPlaylist.init(url: url, medias: media, iFrameStreamInf: iFrameStreamInf, variants: playlists)
