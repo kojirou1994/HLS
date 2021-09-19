@@ -37,6 +37,14 @@ let package = Package(
         "URLFileManager"
     ]),
     .target(
+      name: "HLSDownloader",
+      dependencies: [
+        "HLS",
+        "WebVTT",
+        "HTTPDownloader",
+        "Krypto",
+    ]),
+    .target(
       name: "Demo",
       dependencies: ["HLS"]),
     .testTarget(
