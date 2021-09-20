@@ -51,10 +51,10 @@ extension Resolution: Comparable {
   }
 }
 
-extension Optional: Comparable where Wrapped == Resolution {
+extension Optional: Comparable where Wrapped: Comparable {
   public static func < (lhs: Self, rhs: Self) -> Bool {
     switch (lhs, rhs) {
-    case (.none, .none): return false
+    case (.none, .none): return true
     case (.some, .none): return false
     case (.none, .some): return true
     case let (.some(l), .some(r)): return l < r
