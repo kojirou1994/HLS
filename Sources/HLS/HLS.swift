@@ -612,7 +612,8 @@ public enum HlsTag: Equatable {
   /// The EXT-X-STREAM-INF tag specifies a Variant Stream, which is a set
   /// of Renditions that can be combined to play the presentation.  The
   /// attributes of the tag provide information about the Variant Stream.
-  public struct StreamInf: _HlsAttributeTag {
+  public struct StreamInf: _HlsAttributeTag, CustomStringConvertible {
+
     public init(bandwidth: Int) {
       self.bandwidth = bandwidth
       self.averageBandwidth = nil
@@ -644,6 +645,24 @@ public enum HlsTag: Equatable {
     }
 
     var type: _HlsTagType {.streamInf}
+
+    public var description: String {
+      "StreamInf(" +
+      ([
+        ("bandwidth", bandwidth.description),
+        ("averageBandwidth", averageBandwidth?.description),
+        ("codecs", codecs),
+        ("resolution", resolution?.description),
+        ("video", video),
+        ("audio", audio),
+        ("subtitles", subtitles),
+        ("closedCaptions", closedCaptions),
+      ] as [(String, String?)])
+        .lazy.filter { $0.1 != nil }
+        .map { "\($0.0): \($0.1!)"}
+        .joined(separator: ", ")
+      + ")"
+    }
 
     /// The value is a decimal-integer of bits per second.  It represents the peak segment bit rate of the Variant Stream.
     public let bandwidth: Int
