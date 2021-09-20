@@ -609,6 +609,9 @@ public enum HlsTag: Equatable {
   }
 
   /// 4.4.4.2
+  /// The EXT-X-STREAM-INF tag specifies a Variant Stream, which is a set
+  /// of Renditions that can be combined to play the presentation.  The
+  /// attributes of the tag provide information about the Variant Stream.
   public struct StreamInf: _HlsAttributeTag {
     public init(bandwidth: Int) {
       self.bandwidth = bandwidth
@@ -625,12 +628,14 @@ public enum HlsTag: Equatable {
     }
 
     init(_ dictionary: [String : String]) throws {
+      // Every EXT-X-STREAM-INF tag MUST include the BANDWIDTH attribute.
       bandwidth = try dictionary.get("BANDWIDTH")
       averageBandwidth = try dictionary["AVERAGE-BANDWIDTH"]?.toInt()
+      // Every EXT-X-STREAM-INF tag SHOULD include a CODECS attribute.
       codecs = try dictionary.get("CODECS")
       resolution = try dictionary["RESOLUTION"]?.toResolution()
       frameRate = dictionary["FRAME-RATE"]
-      hdcpLevel = dictionary["HDCP-LEVEL"]
+      hdcpLevel = try dictionary["HDCP-LEVEL"]?.toEnum()
       videoRange = try dictionary["VIDEO-RANGE"]?.toEnum()
       audio = dictionary["AUDIO"]
       video = dictionary["VIDEO"]
@@ -640,19 +645,73 @@ public enum HlsTag: Equatable {
 
     var type: _HlsTagType {.streamInf}
 
+    /// The value is a decimal-integer of bits per second.  It represents the peak segment bit rate of the Variant Stream.
     public let bandwidth: Int
+    /// The value is a decimal-integer of bits per second.  It represents the average segment bit rate of the Variant Stream.
     public let averageBandwidth: Int?
+    /***
+     The value is a quoted-string containing a comma-separated list of
+     formats, where each format specifies a media sample type that is
+     present in one or more Renditions specified by the Variant Stream.
+     Valid format identifiers are those in the ISO Base Media File
+     Format Name Space defined by "The ’Codecs’ and ’Profiles’
+     Parameters for "Bucket" Media Types" [RFC6381].
+     For example, a stream containing AAC low complexity (AAC-LC) audio
+     and H.264 Main Profile Level 3.0 video would have a CODECS value
+     of "mp4a.40.2,avc1.4d401e".
+     Note that if a Variant Stream specifies one or more Renditions
+     that include IMSC subtitles, the CODECS attribute MUST indicate
+     this with a format identifier such as "stpp.ttml.im1t".
+     */
     public let codecs: String
     public let resolution: Resolution?
     public let frameRate: String?
-    public let hdcpLevel: String?
+    public let hdcpLevel: HdcpLevel?
+    public enum HdcpLevel: String, CaseIterable {
+      /**
+       the content does not require output copy protection.
+       */
+      case none = "NONE"
+      /**
+       the Variant Stream could fail to play unless the
+       output is protected by High-bandwidth Digital Content Protection
+       (HDCP) Type 0 [HDCP] or equivalent.
+       */
+      case type0 = "TYPE-0"
+      /**
+       the Variant Stream could fail to play unless the output is
+       protected by HDCP Type 1 or equivalent.
+       */
+      case type1 = "TYPE-1"
+    }
     public let videoRange: VideoRange?
     public enum VideoRange: String, CaseIterable {
       case sdr = "SDR"
       case pq = "PQ"
     }
+    /**
+     It MUST match the value of the
+     GROUP-ID attribute of an EXT-X-MEDIA tag elsewhere in the Master
+     Playlist whose TYPE attribute is AUDIO.  It indicates the set of
+     audio Renditions that SHOULD be used when playing the
+     presentation.  See Section 4.4.4.2.1.
+     */
     public let audio: String?
+    /**
+     The value is a quoted-string.  It MUST match the value of the
+     GROUP-ID attribute of an EXT-X-MEDIA tag elsewhere in the Master
+     Playlist whose TYPE attribute is VIDEO.  It indicates the set of
+     video Renditions that SHOULD be used when playing the
+     presentation.  See Section 4.4.4.2.1.
+     */
     public let video: String?
+    /**
+     It MUST match the value of the
+     GROUP-ID attribute of an EXT-X-MEDIA tag elsewhere in the Master
+     Playlist whose TYPE attribute is SUBTITLES.  It indicates the set
+     of subtitle Renditions that can be used when playing the
+     presentation.  See Section 4.4.4.2.1.
+     */
     public let subtitles: String?
     public let closedCaptions: String?
   }
@@ -806,7 +865,7 @@ public enum PlaylistLine {
       if line.hasPrefix("#EXT") {
         // tag
         if let attributeSeperateIndex = line.firstIndex(of: ":") {
-          let tag = try _HlsTagType(String(line[line.index(after: line.startIndex)..<attributeSeperateIndex]))
+          let tag = try _HlsTagType(String(line.dropFirst()[..<attributeSeperateIndex]))
           switch tag.attributeType {
           case .keyValue:
             var attributes: [String : String] = [:]
@@ -826,7 +885,9 @@ public enum PlaylistLine {
                 valueEndIndex = line[valueStartIndex...].firstIndex(of: ",") ?? line.endIndex
                 value = line[valueStartIndex..<valueEndIndex]
               }
-              attributes[String(key)] =  String(value)
+              if !value.isEmpty {
+                attributes[String(key)] =  String(value)
+              }
               if valueEndIndex == line.endIndex {
                 break
               }
