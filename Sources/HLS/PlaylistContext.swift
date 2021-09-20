@@ -1,6 +1,7 @@
 import Foundation
+import Logging
 
-public final class PlaylistParseContext {
+public struct PlaylistParseContext {
 
   var hasM3u: Bool = false
   var version: Int?
@@ -26,11 +27,15 @@ public final class PlaylistParseContext {
 
   var _verifiedPlaylisyType: _PlaylistType = .unknown
 
-  public init() {
+  public private(set) var lines: [PlaylistLine.GoodLine] =  []
+  private let logger: Logger?
 
+  public init(logger: Logger? = nil) {
+    self.logger = logger
   }
 
-  public func add(line: PlaylistLine.GoodLine) throws {
+  public mutating func add(line: PlaylistLine.GoodLine) throws {
+
     if case .unknown = _verifiedPlaylisyType {
       // verify
       switch line {
@@ -46,9 +51,9 @@ public final class PlaylistParseContext {
     }
 
     // must know playlist type
-    guard case .known(let pt) = _verifiedPlaylisyType else {
-      fatalError()
-    }
+//    guard case .known(let pt) = _verifiedPlaylisyType else {
+//      fatalError()
+//    }
 
     // MARK: read line
     switch line {
@@ -149,20 +154,23 @@ public final class PlaylistParseContext {
         fatalError("Unusedtags!")
       }
       unusedTags = []
-      switch pt {
-      case .media:
+      switch _verifiedPlaylisyType {
+      case .unknown: fatalError()
+      case .known(.media):
 #warning("apply map, programDateTime,gap, bitrate")
         guard let infV = inf else {
           fatalError("No inf")
         }
-        //                    print(infV)
-        if uri != segments.last?.uri {
-          segments.append(.init(uri: uri, inf: infV))
+        let segment = MediaPlaylist.MediaSegment(uri: uri, inf: infV)
+        // preserve duplicated segment
+
+        if segment != segments.last {
+          segments.append(segment)
         }
         inf = nil
         programDateTime = nil
         gap = false
-      case .master:
+      case .known(.master):
 
         if let streamInfV = streamInf {
           //                        print(streamInfV)
@@ -173,7 +181,9 @@ public final class PlaylistParseContext {
           fatalError("No streamInf")
         }
       }
-    }
+    } // line parsing
+
+    lines.append(line)
   }
 
   public func result(url: URL) throws -> Playlist {

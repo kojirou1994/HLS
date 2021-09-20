@@ -44,3 +44,20 @@ extension Dictionary where Key == String, Value == String {
     return try str.toEnum()
   }
 }
+
+extension Resolution: Comparable {
+  public static func < (lhs: Self, rhs: Self) -> Bool {
+    lhs.size < rhs.size
+  }
+}
+
+extension Optional: Comparable where Wrapped == Resolution {
+  public static func < (lhs: Self, rhs: Self) -> Bool {
+    switch (lhs, rhs) {
+    case (.none, .none): return false
+    case (.some, .none): return false
+    case (.none, .some): return true
+    case let (.some(l), .some(r)): return l < r
+    }
+  }
+}

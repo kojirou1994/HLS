@@ -11,12 +11,17 @@ public enum PlaylistType {
   case master
 }
 
-public struct Variant {
+public struct Variant: CustomStringConvertible {
+
   public let uri: String
   public let streamInf: HlsTag.StreamInf
   public let videos: [HlsTag.Media]
   public let audios: [HlsTag.Media]
   public let subtitles: [HlsTag.Media]
+
+  public var description: String {
+    "uri: \(uri), streamInf: \(streamInf)"
+  }
 
   public init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
     self.uri = uri
@@ -86,7 +91,7 @@ public struct MediaPlaylist {
 
   public let segments: [MediaSegment]
 
-  public struct MediaSegment {
+  public struct MediaSegment: Equatable {
     public let uri: String
     public let inf: HlsTag.Inf
   }
@@ -122,8 +127,8 @@ public enum Playlist {
 //      }
 //    }(), "No first line m3u tag!")
 
-    let context = PlaylistParseContext()
-    try lines.forEach(context.add)
+    var context = PlaylistParseContext()
+    try lines.forEach { try context.add(line: $0) }
     self = try context.result(url: url)
   }
 }
