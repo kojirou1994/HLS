@@ -11,7 +11,7 @@ public enum PlaylistType {
   case master
 }
 
-public struct Variant: CustomStringConvertible {
+public struct ResolvedVariant {
 
   public let uri: String
   public let streamInf: HlsTag.StreamInf
@@ -19,37 +19,15 @@ public struct Variant: CustomStringConvertible {
   public let audios: [HlsTag.Media]
   public let subtitles: [HlsTag.Media]
 
+}
+
+public struct Variant: CustomStringConvertible {
+
+  public let uri: String
+  public let streamInf: HlsTag.StreamInf
+
   public var description: String {
     "uri: \(uri), streamInf: \(streamInf)"
-  }
-
-  public init(uri: String, streamInf: HlsTag.StreamInf, medias: [HlsTag.Media]) {
-    self.uri = uri
-    self.streamInf = streamInf
-    var videos = [HlsTag.Media]()
-    var audios = [HlsTag.Media]()
-    var subtitles = [HlsTag.Media]()
-    medias.forEach { (media) in
-      switch media.mediatype {
-      case .video:
-        if media.groupID == streamInf.video {
-          videos.append(media)
-        }
-      case .audio:
-        if media.groupID == streamInf.audio {
-          audios.append(media)
-        }
-      case .subtitles:
-        if media.groupID == streamInf.subtitles {
-          subtitles.append(media)
-        }
-      default:
-        break
-      }
-    }
-    self.videos = videos
-    self.audios = audios
-    self.subtitles = subtitles
   }
 }
 
@@ -68,9 +46,34 @@ public struct MasterPlaylist {
     self.medias = medias
     self.iFrameStreamInf = iFrameStreamInf
     self.variants = variants.map {
-      .init(uri: $0.uri, streamInf: $0.streamInf, medias: medias)
+      .init(uri: $0.uri, streamInf: $0.streamInf)
 
     }
+  }
+
+  public func resolve(variant: Variant) throws -> ResolvedVariant {
+    var videos = [HlsTag.Media]()
+    var audios = [HlsTag.Media]()
+    var subtitles = [HlsTag.Media]()
+    medias.forEach { (media) in
+      switch media.mediatype {
+      case .video:
+        if media.groupID == variant.streamInf.video {
+          videos.append(media)
+        }
+      case .audio:
+        if media.groupID == variant.streamInf.audio {
+          audios.append(media)
+        }
+      case .subtitles:
+        if media.groupID == variant.streamInf.subtitles {
+          subtitles.append(media)
+        }
+      default:
+        break
+      }
+    }
+    return .init(uri: variant.uri, streamInf: variant.streamInf, videos: videos, audios: audios, subtitles: subtitles)
   }
 }
 

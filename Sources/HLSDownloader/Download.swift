@@ -169,7 +169,7 @@ func join(uri: String, baseURL: URL) throws -> URL {
 
 extension HTTPClient {
   public func download(
-    variant: Variant,
+    variant: ResolvedVariant,
     baseURL: URL,
     outputBaseURL: URL,
     workDirectory: URL,
