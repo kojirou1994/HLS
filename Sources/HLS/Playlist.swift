@@ -12,6 +12,14 @@ public enum PlaylistType {
 }
 
 public struct ResolvedVariant {
+  public init(uri: String, streamInf: HlsTag.StreamInf, videos: [HlsTag.Media], audios: [HlsTag.Media], subtitles: [HlsTag.Media]) {
+    self.uri = uri
+    self.streamInf = streamInf
+    self.videos = videos
+    self.audios = audios
+    self.subtitles = subtitles
+  }
+
 
   public let uri: String
   public let streamInf: HlsTag.StreamInf
@@ -27,7 +35,7 @@ public struct Variant: CustomStringConvertible {
   public let streamInf: HlsTag.StreamInf
 
   public var description: String {
-    "uri: \(uri), streamInf: \(streamInf)"
+    "Variant(uri: \"\(uri)\", streamInf: \(streamInf))"
   }
 }
 
@@ -47,7 +55,6 @@ public struct MasterPlaylist {
     self.iFrameStreamInf = iFrameStreamInf
     self.variants = variants.map {
       .init(uri: $0.uri, streamInf: $0.streamInf)
-
     }
   }
 

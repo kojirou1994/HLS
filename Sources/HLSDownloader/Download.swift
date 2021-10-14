@@ -23,17 +23,30 @@ extension Collection where Element == URL {
   }
 }
 
-public enum HlsDownloaderError: Error { case invalidSegmentContentType }
+public enum HlsDownloaderError: Error {
+  case invalidSegmentContentType
+}
+
+public enum HlsDecryptor {
+  case none
+  case aes128(key: [UInt8], iv: [UInt8]?)
+}
 
 public struct HlsDownloadItem: HTTPDownloaderTaskInfoProtocol {
   public let url: URL
-
+  public let segmentIndex: Int
   /// temp file
   public let outputURL: URL
 
   public let destinationURL: URL
 
   public let watchProgress: Bool = false
+
+  public func request() throws -> HTTPClient.Request {
+    var req = try HTTPClient.Request(url: url)
+    req.headers.replaceOrAdd(name: "User-Agent", value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15")
+    return req
+  }
 }
 
 public struct DownloadError: Error {
@@ -41,22 +54,28 @@ public struct DownloadError: Error {
   public let error: Error
 }
 
-public final class HlsDownloader: HTTPDownloaderDelegate {
+public final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
 
   public typealias TaskInfo = HlsDownloadItem
 
-  internal init(promise: EventLoopPromise<Void>) {  //, completion: @escaping (Error?) -> Void) {
-    //    self.completion = completion
+  internal init(promise: EventLoopPromise<Void>, decryptor: HlsDecryptor, tempDirectory: URL) {
     self.promise = promise
+    self.decryptor = decryptor
+    self.tempDirectory = tempDirectory
   }
 
-  let promise: EventLoopPromise<Void>
-  //  let completion: (Error?) -> Void
+  private let promise: EventLoopPromise<Void>
+  private let decryptor: HlsDecryptor
+  private let tempDirectory: URL
 
   var error: Error?
 
+  deinit {
+//    print(#function)
+  }
+
   public func downloadDidReceiveHead(
-    downloader: HTTPDownloader<HlsDownloader>,
+    downloader: HTTPDownloader<HlsDownloaderDelegate>,
     info: TaskInfo,
     head: HTTPResponseHead
   ) throws {
@@ -66,15 +85,15 @@ public final class HlsDownloader: HTTPDownloaderDelegate {
   }
 
   public func downloadStarted(
-    downloader: HTTPDownloader<HlsDownloader>,
+    downloader: HTTPDownloader<HlsDownloaderDelegate>,
     info: TaskInfo,
     task: HTTPClient.Task<HTTPClientFileDownloader.Response>
   ) {
-
+    print("Start downloading \(info.url.lastPathComponent)")
   }
 
   public func downloadProgressChanged(
-    downloader: HTTPDownloader<HlsDownloader>,
+    downloader: HTTPDownloader<HlsDownloaderDelegate>,
     info: TaskInfo,
     total: Int64,
     downloaded: Int64
@@ -83,17 +102,41 @@ public final class HlsDownloader: HTTPDownloaderDelegate {
   }
 
   public func downloadFinished(
-    downloader: HTTPDownloader<HlsDownloader>,
+    downloader: HTTPDownloader<HlsDownloaderDelegate>,
     info: TaskInfo,
     result: Result<HTTPClientFileDownloader.Response, Error>
   ) {
     switch result {
     case .failure(let error):
+      print("Downloading failed")
       self.error = DownloadError(url: info.url, error: error)
       downloader.cancelAll()
     case .success:
+      print("Segment \(info.segmentIndex) downloaded")
       do {
-        try URLFileManager.default.moveItem(at: info.outputURL, to: info.destinationURL)
+        switch decryptor {
+        case .none: // no encrypt, just move file
+          print("Moving")
+          try URLFileManager.default.moveItem(at: info.outputURL, to: info.destinationURL)
+        case .aes128(let key, let iv):
+          func genIV(seqNum: Int) -> [UInt8] {
+            // see chapter 3
+            let paddingCount = 16 - Int.bitWidth/UInt8.bitWidth
+            var bytes = [UInt8](repeating: 0, count: paddingCount)
+            bytes.append(contentsOf: seqNum.bytes)
+            return bytes
+          }
+
+          print("Decrypting file \(info.outputURL.path)")
+          let tmpDecodedURL = tempDirectory.randomFileURL
+          try preconditionOrThrow(fm.createFile(at: tmpDecodedURL))
+          let fh = try FileHandle(forWritingTo: tmpDecodedURL)
+          let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.outputURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
+          try fh.kwiftWrite(contentsOf: decodedContent)
+          try fh.close()
+          print("Moving")
+          try URLFileManager.default.moveItem(at: tmpDecodedURL, to: info.destinationURL)
+        }
       } catch {
         self.error = error
         downloader.cancelAll()
@@ -101,7 +144,7 @@ public final class HlsDownloader: HTTPDownloaderDelegate {
     }
   }
 
-  public func downloadAllFinished(downloader: HTTPDownloader<HlsDownloader>) {
+  public func downloadAllFinished(downloader: HTTPDownloader<HlsDownloaderDelegate>) {
     //    completion(error)
     if let e = error {
       promise.fail(e)
@@ -135,8 +178,7 @@ fileprivate func joinFile(_ item: JoinFileItem, tempDirectory: URL) throws {
     let tempURL = tempDirectory.randomFileURL
     try joinFile(to: tempURL, inputURLs: item.inputs)
     try fm.moveItem(at: tempURL, to: item.output)
-  }
-  else {
+  } else {
     print("\(item.output.path) already exists.")
   }
 }
@@ -214,15 +256,15 @@ extension HTTPClient {
       let mainDownloadDirectory = rootDownloadDirectory.appendingPathComponent("main")
       try fm.createDirectory(at: mainDownloadDirectory)
 
-      mainSegmentURLs.forEach { segmentURL in
-        let outputURL = tempDirectory.randomFileURL
+      mainSegmentURLs.enumerated().forEach { offset,segmentURL in
         let destinationURL = mainDownloadDirectory.appendingPathComponent(
           segmentURL.lastPathComponent
         )
 
         if fm.fileExistance(at: destinationURL).exists { return }
+        let outputURL = tempDirectory.randomFileURL
         downloadItems.append(
-          .init(url: segmentURL, outputURL: outputURL, destinationURL: destinationURL)
+          .init(url: segmentURL, segmentIndex: offset, outputURL: outputURL, destinationURL: destinationURL)
         )
       }
 
@@ -271,14 +313,15 @@ extension HTTPClient {
           )
           try fm.createDirectory(at: thisMediaDownloadDirectory)
 
-          mediaSegmentURLs.forEach { segmentURL in let outputURL = tempDirectory.randomFileURL
+          mediaSegmentURLs.enumerated().forEach { offset, segmentURL in
             let destinationURL = thisMediaDownloadDirectory.appendingPathComponent(
               segmentURL.lastPathComponent
             )
 
             if fm.fileExistance(at: destinationURL).exists { return }
+            let outputURL = tempDirectory.randomFileURL
             downloadItems.append(
-              .init(url: segmentURL, outputURL: outputURL, destinationURL: destinationURL)
+              .init(url: segmentURL, segmentIndex: offset, outputURL: outputURL, destinationURL: destinationURL)
             )
           }
 
@@ -295,38 +338,33 @@ extension HTTPClient {
       let audioFileItems = try handle(medias: variant.audios, prefix: "audio")
       let subtitleFileItems = try handle(medias: variant.subtitles, prefix: "subtitle")
 
-      let promise = eventLoopGroup.next().makePromise(of: Void.self)
-      let delegate = HlsDownloader(promise: promise)
-      let queue = HTTPDownloader(httpClient: self,
-                                 maxCoucurrent: maxCoucurrent, timeout: .minutes(10),
-                                 delegate: delegate)
-      queue.download(contentsOf: downloadItems)
-
-      try promise.futureResult.wait()
-
-      // MARK: Decrypt
+      let decryptor: HlsDecryptor
       if let key = mediaPlaylist.globalProperty.key {
         switch key.method {
-        case .none: break
+        case .none:
+          decryptor = .none
         case .aes128:
           let keyURL = try key.uri.unwrap("NO URI!")
-          let iv = try key.iv.unwrap("NO IV!")
-          let ivBytes = try [UInt8](hexString: iv)
+          let ivBytes = try key.iv.map([UInt8].init(hexString:))
           let keyBody = try self.get(url: keyURL).wait().body.unwrap()
           let keyContent = try keyBody.getBytes(at: keyBody.readerIndex, length: keyBody.readableBytes).unwrap()
-          try downloadItems.forEach { downloadedItem in
-            print("Decrypting file \(downloadedItem.destinationURL.path)")
-            let tmpDecodedURL = tempDirectory.randomFileURL
-            try preconditionOrThrow(fm.createFile(at: tmpDecodedURL))
-            let fh = try FileHandle(forWritingTo: tmpDecodedURL)
-            let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: downloadedItem.destinationURL), key: keyContent, iv: ivBytes)
-            try fh.kwiftWrite(contentsOf: decodedContent)
-            try fh.close()
-            _ = try fm.replaceItemAt(downloadedItem.destinationURL, withItemAt: tmpDecodedURL)
-          }
+          decryptor = .aes128(key: keyContent, iv: ivBytes)
         case .sampleAES:
           fatalError("sample-aes not supported yet!")
         }
+      } else {
+        decryptor = .none
+      }
+
+      do {
+        let promise = eventLoopGroup.next().makePromise(of: Void.self)
+        let delegate = HlsDownloaderDelegate(promise: promise, decryptor: decryptor, tempDirectory: tempDirectory)
+        let queue = HTTPDownloader(httpClient: self,
+                                   maxCoucurrent: maxCoucurrent, timeout: .minutes(10),
+                                   delegate: delegate)
+        queue.download(contentsOf: downloadItems)
+
+        try promise.futureResult.wait()
       }
 
       func mediaToMkvInput(_ files: [URL], _ medias: [HlsTag.Media]) -> [MkvMerge.Input] {
