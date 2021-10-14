@@ -35,12 +35,15 @@ public enum HlsDecryptor {
 public struct HlsDownloadItem: HTTPDownloaderTaskInfoProtocol {
   public let url: URL
   public let segmentIndex: Int
-  /// temp file
-  public let outputURL: URL
+  public let tempDownloadedURL: URL
 
   public let destinationURL: URL
 
   public let watchProgress: Bool = false
+
+  public var outputURL: URL {
+    tempDownloadedURL
+  }
 
   public func request() throws -> HTTPClient.Request {
     var req = try HTTPClient.Request(url: url)
@@ -117,7 +120,7 @@ public final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
         switch decryptor {
         case .none: // no encrypt, just move file
           print("Moving")
-          try URLFileManager.default.moveItem(at: info.outputURL, to: info.destinationURL)
+          try URLFileManager.default.moveItem(at: info.tempDownloadedURL, to: info.destinationURL)
         case .aes128(let key, let iv):
           func genIV(seqNum: Int) -> [UInt8] {
             // see chapter 3
@@ -127,15 +130,16 @@ public final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
             return bytes
           }
 
-          print("Decrypting file \(info.outputURL.path)")
+          print("Decrypting file \(info.tempDownloadedURL.path)")
           let tmpDecodedURL = tempDirectory.randomFileURL
           try preconditionOrThrow(fm.createFile(at: tmpDecodedURL))
           let fh = try FileHandle(forWritingTo: tmpDecodedURL)
-          let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.outputURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
+          let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.tempDownloadedURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
           try fh.kwiftWrite(contentsOf: decodedContent)
           try fh.close()
           print("Moving")
           try URLFileManager.default.moveItem(at: tmpDecodedURL, to: info.destinationURL)
+          try? URLFileManager.default.removeItem(at: info.tempDownloadedURL)
         }
       } catch {
         self.error = error
@@ -264,7 +268,7 @@ extension HTTPClient {
         if fm.fileExistance(at: destinationURL).exists { return }
         let outputURL = tempDirectory.randomFileURL
         downloadItems.append(
-          .init(url: segmentURL, segmentIndex: offset, outputURL: outputURL, destinationURL: destinationURL)
+          .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL)
         )
       }
 
@@ -321,7 +325,7 @@ extension HTTPClient {
             if fm.fileExistance(at: destinationURL).exists { return }
             let outputURL = tempDirectory.randomFileURL
             downloadItems.append(
-              .init(url: segmentURL, segmentIndex: offset, outputURL: outputURL, destinationURL: destinationURL)
+              .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL)
             )
           }
 
