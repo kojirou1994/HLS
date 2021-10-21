@@ -4,7 +4,6 @@ import Foundation
 import NIO
 import NIOHTTP1
 import URLFileManager
-import CryptoKit
 import Krypto
 import Precondition
 import HLS
@@ -115,7 +114,7 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
           try preconditionOrThrow(URLFileManager.default.createFile(at: tmpDecodedURL))
           try autoreleasepool {
             let fh = try FileHandle(forWritingTo: tmpDecodedURL)
-            let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.tempDownloadedURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
+            let decodedContent = try AESCBC.decrypt(input: Data(contentsOf: info.tempDownloadedURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
             try fh.kwiftWrite(contentsOf: decodedContent)
             try fh.close()
           }

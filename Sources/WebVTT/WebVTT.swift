@@ -6,10 +6,10 @@ import HTMLString
 public enum WebVTT {
   public static func convert(webVttIn fileURL: URL) throws -> [TimedText] {
     try autoreleasepool {
-      try convert(webVtt:
-        String(contentsOf: fileURL)
-        .replacingOccurrences(of: "\r\n", with: "\n")
-        .split(separator: "\n", omittingEmptySubsequences: false))
+      try convert(
+        webVtt: String(contentsOf: fileURL)
+          .components(separatedBy: .newlines)
+      )
     }
   }
 
