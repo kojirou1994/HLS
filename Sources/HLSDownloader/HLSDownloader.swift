@@ -17,6 +17,7 @@ struct HlsSegmentDownloadItem: HTTPDownloaderTaskInfoProtocol {
   let tempDownloadedURL: URL
 
   let destinationURL: URL
+  let userAgent: String
 
   var watchProgress: Bool { false }
 
@@ -26,7 +27,7 @@ struct HlsSegmentDownloadItem: HTTPDownloaderTaskInfoProtocol {
 
   func request() throws -> HTTPClient.Request {
     var req = try HTTPClient.Request(url: url)
-    req.headers.replaceOrAdd(name: "User-Agent", value: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15")
+    req.headers.replaceOrAdd(name: "User-Agent", value: userAgent)
     return req
   }
 }
@@ -71,7 +72,7 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
     info: TaskInfo,
     task: HTTPClient.Task<HTTPClientFileDownloader.Response>
   ) {
-    print("Start downloading \(info.url.lastPathComponent)")
+    print("Start downloading segment \(info.segmentIndex)")
   }
 
   func downloadProgressChanged(
@@ -109,13 +110,15 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
             return bytes
           }
 
-          print("Decrypting file \(info.tempDownloadedURL.path)")
+          print("Decrypting segment \(info.segmentIndex)")
           let tmpDecodedURL = tempDirectory.randomFileURL
           try preconditionOrThrow(URLFileManager.default.createFile(at: tmpDecodedURL))
-          let fh = try FileHandle(forWritingTo: tmpDecodedURL)
-          let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.tempDownloadedURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
-          try fh.kwiftWrite(contentsOf: decodedContent)
-          try fh.close()
+          try autoreleasepool {
+            let fh = try FileHandle(forWritingTo: tmpDecodedURL)
+            let decodedContent = try AES.CBC.decrypt(input: Data(contentsOf: info.tempDownloadedURL), key: key, iv: iv ?? genIV(seqNum: info.segmentIndex))
+            try fh.kwiftWrite(contentsOf: decodedContent)
+            try fh.close()
+          }
           print("Moving")
           try URLFileManager.default.moveItem(at: tmpDecodedURL, to: info.destinationURL)
           try? URLFileManager.default.removeItem(at: info.tempDownloadedURL)
@@ -138,9 +141,10 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
 }
 
 public final class HLSDownloader {
-  public init(http: HTTPClient, userAgent: String?) {
+  public init(http: HTTPClient, userAgent: String?, retryLimit: Int) {
     self.http = http
     self.userAgent = userAgent ?? UserAgent.safari
+    self.retryLimit = retryLimit
   }
 
   private let http: HTTPClient
@@ -148,7 +152,7 @@ public final class HLSDownloader {
 
   // MARK: Config
   private let userAgent: String
-
+  private let retryLimit: Int
 }
 
 extension HLSDownloader {
@@ -206,7 +210,7 @@ extension HLSDownloader {
         if fm.fileExistance(at: destinationURL).exists { return }
         let outputURL = tempDirectory.randomFileURL
         downloadItems.append(
-          .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL)
+          .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL, userAgent: userAgent)
         )
       }
 
@@ -263,7 +267,7 @@ extension HLSDownloader {
             if fm.fileExistance(at: destinationURL).exists { return }
             let outputURL = tempDirectory.randomFileURL
             downloadItems.append(
-              .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL)
+              .init(url: segmentURL, segmentIndex: offset, tempDownloadedURL: outputURL, destinationURL: destinationURL, userAgent: userAgent)
             )
           }
 
@@ -302,6 +306,7 @@ extension HLSDownloader {
         let promise = http.eventLoopGroup.next().makePromise(of: Void.self)
         let delegate = HlsDownloaderDelegate(promise: promise, decryptor: decryptor, tempDirectory: tempDirectory)
         let queue = HTTPDownloader(httpClient: http,
+                                   retryLimit: retryLimit,
                                    maxCoucurrent: maxCoucurrent, timeout: .minutes(10),
                                    delegate: delegate)
         queue.download(contentsOf: downloadItems)

@@ -2,11 +2,11 @@ import XCTest
 @testable import HLS
 
 final class HLSTests: XCTestCase {
-    func testParseTag() {
-        
-        print(MemoryLayout<PlaylistLine>.size)
-        
-        let example = """
+  func testParseTag() {
+
+    print(MemoryLayout<PlaylistLine>.size)
+
+    let example = """
 #EXTM3U
 #EXT-X-VERSION:6
 #EXT-X-INDEPENDENT-SEGMENTS
@@ -219,12 +219,9 @@ https://p-events-delivery.akamaized.net/3004qzusahnbjppuwydgjzsdyzsippar/vod3/06
 0200/prog_index.m3u8
 
 """
-        example.enumerateLines { (line, _) in
-            print(try! PlaylistLine(line: line))
-        }
+    example.enumerateLines { (line, _) in
+      print(try! PlaylistLine(line: line))
     }
+  }
 
-    static var allTests = [
-        ("testParseTag", testParseTag),
-    ]
 }
