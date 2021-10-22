@@ -50,6 +50,9 @@ struct HlsCli: ParsableCommand {
   @Option(help: "Retry limit for segment download error")
   var retry: Int = 4
 
+  @Option(help: "Max download concurrent count")
+  var threads: Int = 8
+
   @Option(name: .shortAndLong)
   var audio: [String] = []
 
@@ -71,7 +74,7 @@ struct HlsCli: ParsableCommand {
 
     let hlsDownloader = HLSDownloader(http: httpClient, userAgent: userAgent, retryLimit: retry)
     let variant = ResolvedVariant(uri: self.url, streamInf: .init(bandwidth: 0), videos: [.init(mediatype: .video, uri: self.url)], audios: audio.map { .init(mediatype: .audio, uri: $0) }, subtitles: [])
-    let fileURL = try hlsDownloader.download(variant: variant, baseURL: url.deletingLastPathComponent(), outputBaseURL: workDirectory, workDirectory: workDirectory, tempDirectory: tempDirectory, maxCoucurrent: 4)
+    let fileURL = try hlsDownloader.download(variant: variant, baseURL: url.deletingLastPathComponent(), outputBaseURL: workDirectory, workDirectory: workDirectory, tempDirectory: tempDirectory, maxCoucurrent: threads)
 
     print("Downloaded to: \(fileURL.path)")
   }
