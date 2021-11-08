@@ -33,6 +33,7 @@ let package = Package(
     .package(url: "https://github.com/kojirou1994/ProxyInfo.git", from: "0.0.1"),
     .package(url: "https://github.com/vincent-pradeilles/KeyPathKit.git", from: "1.0.0"),
     .package(url: "https://github.com/MaxDesiatov/XMLCoder.git", .upToNextMajor(from: "0.13.0")),
+    .package(url: "https://github.com/stephencelis/SQLite.swift.git", from: "0.13.0")
   ],
   targets: [
     .target(
@@ -91,6 +92,7 @@ let package = Package(
         .product(name: "AsyncHTTPClientProxy", package: "ProxyInfo"),
         .product(name: "ExecutableLauncher", package: "Executable"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "SQLite", package: "SQLite.swift"),
       ]),
     .testTarget(
       name: "HLSTests",

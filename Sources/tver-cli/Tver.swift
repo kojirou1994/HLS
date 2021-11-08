@@ -67,3 +67,13 @@ public struct TverMediaInfo: Codable {
     case episode
   }
 }
+
+struct TverAreaInfo: Codable {
+  let data: [Data]
+  struct Data: Codable {
+    let href: String
+    let date: String
+    let media: String
+    let title: String
+  }
+}

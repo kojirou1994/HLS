@@ -1,83 +1,7 @@
 import ArgumentParser
 import Foundation
 import URLFileManager
-import AsyncHTTPClient
-import AsyncHTTPClientProxy
-import NIO
-import NIOFoundationCompat
-import KwiftUtility
-import ExecutableDescription
-import ExecutableLauncher
-
-struct TverDownloadMeta {
-  let title: String
-  let subtitle: String
-  let href: String
-
-  var url: String {
-    "https://tver.jp\(href)"
-  }
-}
-
-func download(http: HTTPClient, meta: TverDownloadMeta) {
-
-  let cacheDir = "[Downloading] \(meta.title) - \(meta.subtitle)".safeFilename()
-  let tempOutFileName = "\(meta.title) - \(meta.subtitle)"
-  let outputFile = URL(fileURLWithPath: meta.title.safeFilename())
-    .appendingPathComponent(meta.subtitle.safeFilename())
-    .appendingPathExtension("mkv")
-  if URLFileManager.default.fileExistance(at: outputFile).exists {
-    print("Already existed: \(outputFile.path)")
-    return
-  }
-
-  do {
-    print("Downloading...\(meta)")
-    let ytbJSON = try retry(body: AnyExecutable(executableName: "youtube-dl", arguments: ["-j", meta.url])
-      .launch(use: TSCExecutableLauncher())
-      .output.get()
-      )
-    let tverInfo = try JSONDecoder().kwiftDecode(from: ytbJSON, as: YoutubeDLDumpInfo.self)
-
-    print("all formats:")
-    tverInfo.formats.forEach { format in
-      print(format)
-    }
-    let bestFormat = try tverInfo.formats
-      .filter { $0.vcodec != "none" && $0.acodec != nil && $0.protocol == .m3u8_native && $0.width != nil }
-      .sorted(by: \.width.unsafelyUnwrapped)
-      .last.unwrap("No valid formats")
-    print("\nselected format: \(bestFormat)")
-
-    try URLFileManager.default.createDirectory(at: outputFile.deletingLastPathComponent())
-
-    do { // Download hls
-      let hlsCli = AnyExecutable(executableName: "hls-cli", arguments: ["-o", cacheDir, "-f", tempOutFileName, bestFormat.url])
-
-      try retry(body: hlsCli.launch(use: TSCExecutableLauncher(outputRedirection: .none)))
-
-      try URLFileManager.default.moveItem(at: URL(fileURLWithPath: cacheDir).appendingPathComponent(tempOutFileName).appendingPathExtension("mkv"), to: outputFile)
-    }
-
-    tverInfo.subtitles.forEach { lang, subtitles in
-      subtitles.forEach { subtitle in
-        do {
-          let tempO = UUID().uuidString
-          let curl = AnyExecutable(executableName: "curl", arguments: ["-o", tempO, subtitle.url])
-          try retry(body: curl.launch(use: TSCExecutableLauncher(outputRedirection: .none)))
-          let subURL = try URLFileManager.default.moveAndAutoRenameItem(at: URL(fileURLWithPath: tempO), to: outputFile.replacingPathExtension(with: subtitle.ext))
-          print("Subtitle downloaded: \(subURL.path)")
-        } catch {
-          print("Subtitle failed: \(subtitle)")
-        }
-      }
-    }
-
-    try? retry(body: URLFileManager.default.removeItem(at: URL(fileURLWithPath: cacheDir)))
-  } catch {
-    print("Downloading failed: \(error)")
-  }
-}
+import SQLite
 
 enum TverCategory: String, CustomStringConvertible {
   case feature
@@ -86,63 +10,192 @@ enum TverCategory: String, CustomStringConvertible {
   var description: String { rawValue }
 }
 
+enum TverArea: String, CustomStringConvertible, CaseIterable, ExpressibleByArgument {
+  case drama
+  case variety
+  case documentary
+  case anime
+  case sport
+
+  var description: String { rawValue }
+
+  var name: String {
+    switch self {
+    case .drama:
+      return "ドラマ"
+    case .variety:
+      return "バラエティ"
+    case .documentary:
+      return "報道・ドキュメンタリー"
+    case .anime:
+      return "アニメ"
+    case .sport:
+      return "スポーツ"
+    }
+  }
+}
+
 struct TverCli: ParsableCommand {
+  static var configuration: CommandConfiguration {
+    .init(subcommands: [
+      Batch.self,
+      Download.self,
+    ])
+  }
+}
 
-  @Argument
-  var urls: [String]
+extension TverCli {
+  struct Batch: ParsableCommand {
 
-  func run() throws {
+    @Option
+    var db: String?
 
-    let http = HTTPClient(eventLoopGroupProvider: .createNew, configuration: .init(proxy: .environment(.init(parseUppercaseKey: true))))
-    defer {
-      try? http.syncShutdown()
-    }
+    @Option
+    var cleanDbDay: Int?
 
-    print("logging in")
-    #if DEBUG
-    let token = "t1.1666023555.eyJhcGlrZXkiOiJlMjRmYWEyMS0zMTNjLTRjNjItYjlkMi0wNzJmMjI3ZWVkZGQiLCJ1c2VyIjoiMTI3YTI4ZDgtZTQyNS04OGY2LTA4ZWEtNmVmYTkyMDI4YWY2In0.49331739.27516aee2cff4034a14f9a1eb957bf9c"
-    #else
-    struct TverToken: Decodable {
-      let url: String
-      let token: String
-    }
-    let tokenResBody = try http.execute(url: "https://tver.jp/api/access_token.php").wait().body.unwrap()
-    let token = try JSONDecoder().decode(TverToken.self, from: tokenResBody).token
-    #endif
-    print("token: \(token)")
+    @Flag
+    var reverse: Bool = false
 
-    for urlString in urls {
-      do {
+    @Argument
+    var areas: [TverArea] = TverArea.allCases
 
-        let url = try URL(string: urlString).unwrap()
-        let pathComponents = url.pathComponents
-        try preconditionOrThrow(pathComponents.count == 3, "\(pathComponents)")
-        let category = try TverCategory(rawValue: pathComponents[1].lowercased()).unwrap()
+    func run() throws {
 
-        var urlComponents = URLComponents()
-        urlComponents.scheme = "https"
-        urlComponents.host = "api.tver.jp"
-        urlComponents.path = "/v4/\(category)/\(pathComponents[2])"
-        urlComponents.queryItems = [.init(name: "token", value: token)]
+      let downloader = try TverDownloader()
 
-        let request = try HTTPClient.Request(url: urlComponents.url.unwrap("Cannot generate url"))
-        let resBody = try http.execute(request: request).wait().body.unwrap()
-        let dramaInfo = try JSONDecoder().decode(TverMediaInfo.self, from: resBody)
-        if let episodes = dramaInfo.episode, !episodes.isEmpty {
-          episodes.forEach { episode in
-            download(http: http, meta: .init(title: episode.title, subtitle: episode.subtitle, href: episode.href))
-          }
-        } else {
-          download(http: http, meta: .init(title: dramaInfo.main.title, subtitle: dramaInfo.main.subtitle, href: dramaInfo.main.href))
+      if let dbFile = db {
+        let db = try Connection(dbFile)
+        let tver = Table("tver")
+
+        let id = Expression<String>("id")
+        let date = Expression<Date>("date")
+
+        try db.run(tver.create(ifNotExists: true) { t in
+          t.column(id, primaryKey: true)
+          t.column(date)
+        })
+
+        // clean
+        if let cleanDbDay = cleanDbDay {
+          let query = tver
+            .filter(date < Date().addingTimeInterval(-TimeInterval(cleanDbDay) * 3600 * 24))
+            .delete()
+          try db.run(query)
         }
-      } catch {
-        print("Failed input: \(urlString)", error)
+
+        downloader.shouldDownloadHref = { href in
+          let query = tver
+            .filter(id == href)
+          let array = try! Array(db.prepareRowIterator(query))
+          if array.count == 0 {
+            // not existed
+            return true
+          } else {
+            if (array.count != 1) {
+              print("warning: why duplicate href id?")
+            }
+            print("already downloaded on \(try! array[0].get(date))")
+            return false
+          }
+        }
+
+        downloader.didDownloadHref = { href in
+          do {
+            let query = tver.insert(id <- href, date <- Date())
+            try db.run(query)
+          } catch {
+            fatalError("\(error)")
+          }
+        }
+      }
+
+      for area in areas {
+        do {
+          let areaInfo = try downloader.load(area: area)
+          let data = reverse ? areaInfo.data.reversed() : areaInfo.data
+          print("totally \(data.count) medias")
+          data.forEach { data in
+            print(data)
+          }
+          data.forEach { data in
+            do {
+              try downloader.download(url: "https://tver.jp\(data.href)", area: area)
+            } catch {
+              print("Failed to download media \(data): \(error)")
+            }
+          }
+        } catch {
+          print("Failed to load area \(area)", error)
+        }
+
       }
 
     }
 
   }
 
+  struct Download: ParsableCommand {
+
+    @Argument
+    var urls: [String]
+
+    func run() throws {
+
+      let downloader = try TverDownloader()
+
+      for url in urls {
+        do {
+          try downloader.download(url: url, area: nil)
+        } catch {
+          print("Failed input: \(url)", error)
+        }
+      }
+
+    }
+
+  }
 }
+#if DEBUG
+//dump(try JSONDecoder().decode(TverAreaInfo.self, from: Data(contentsOf: URL(fileURLWithPath: "/Volumes/KIOXIA/Tver/hls-download/tver_drama.txt"))))
+let db = try Connection("/Volumes/T7_COMPILE/super_rich/tver.db")
+let tver = Table("tver")
+
+let id = Expression<String>("id")
+let date = Expression<Date>("date")
+
+try db.run(tver.create(ifNotExists: true) { t in
+  t.column(id, primaryKey: true)
+  t.column(date)
+})
+
+func find(href: String) -> Bool {
+  let query = tver
+    .filter(id == href)
+  let array = try! Array(db.prepareRowIterator(query))
+  if array.count == 0 {
+    // not existed
+    return true
+  } else {
+    if (array.count != 1) {
+      print("warning: why duplicate href id?")
+    }
+    print("already downloaded on \(try! array[0].get(date))")
+    return false
+  }
+}
+
+func save(href: String) {
+  do {
+    let query = tver.insert(id <- href, date <- Date())
+    try db.run(query)
+  } catch {
+    print("failed to insert the record: \(error), maybe re-download the media.")
+  }
+}
+
+print(find(href: "a"))
+save(href: "a")
+print(find(href: "a"))
+#endif
 
 TverCli.main()
