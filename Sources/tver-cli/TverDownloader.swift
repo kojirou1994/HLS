@@ -137,7 +137,7 @@ final class TverDownloader {
         print(format)
       }
       let bestFormat = try tverInfo.formats
-        .filter { $0.vcodec != "none" && $0.acodec != nil && $0.protocol == .m3u8_native && $0.width != nil }
+        .filter { $0.vcodec != "none" && $0.acodec != nil && $0.acodec != "none" && $0.protocol == .m3u8_native && $0.width != nil }
         .sorted(by: \.width.unsafelyUnwrapped)
         .last.unwrap("No valid formats")
       print("\nselected format: \(bestFormat)")
