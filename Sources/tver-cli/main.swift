@@ -53,7 +53,7 @@ extension TverCli {
     @Option
     var db: String?
 
-    @Option
+    @Option(help: "Records expire days.")
     var cleanDbDay: Int?
 
     @Flag
@@ -83,7 +83,11 @@ extension TverCli {
           let query = tver
             .filter(date < Date().addingTimeInterval(-TimeInterval(cleanDbDay) * 3600 * 24))
             .delete()
+          print("Cleaning expired records...")
+          print(query.asSQL())
           try db.run(query)
+          print("Run vacuum...")
+          try db.vacuum()
         }
 
         downloader.shouldDownloadHref = { href in
