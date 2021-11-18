@@ -25,6 +25,7 @@ let package = Package(
     .package(url: "https://github.com/alexaubry/HTMLString.git", from: "5.0.0"),
     .package(url: "https://github.com/kojirou1994/Executable.git", from: "0.0.1"),
     .package(url: "https://github.com/kojirou1994/MediaUtility.git", from: "0.1.0"),
+    .package(url: "https://github.com/swift-server/async-http-client.git", .exact("1.5.1")),
     .package(url: "https://github.com/kojirou1994/HTTPDownloader.git", .branch("master")),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
