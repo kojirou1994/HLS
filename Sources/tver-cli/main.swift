@@ -16,6 +16,7 @@ enum TverArea: String, CustomStringConvertible, CaseIterable, ExpressibleByArgum
   case documentary
   case anime
   case sport
+  case other
 
   var description: String { rawValue }
 
@@ -31,6 +32,8 @@ enum TverArea: String, CustomStringConvertible, CaseIterable, ExpressibleByArgum
       return "アニメ"
     case .sport:
       return "スポーツ"
+    case .other:
+      return "その他"
     }
   }
 }
