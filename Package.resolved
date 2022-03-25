@@ -1,0 +1,250 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "async-http-client",
+        "repositoryURL": "https://github.com/swift-server/async-http-client.git",
+        "state": {
+          "branch": null,
+          "revision": "8fa7f082b155ea325bcf7b2dbffaf81d4eea1ae4",
+          "version": "1.5.1"
+        }
+      },
+      {
+        "package": "Endianness",
+        "repositoryURL": "https://github.com/kojirou1994/Endianness.git",
+        "state": {
+          "branch": null,
+          "revision": "b4a0c081ed60a6f2c12f2b3d152445e1f96aa079",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "package": "Executable",
+        "repositoryURL": "https://github.com/kojirou1994/Executable.git",
+        "state": {
+          "branch": null,
+          "revision": "0665fc9e82a1f988a3d945da84accfcee2b561e1",
+          "version": "0.4.8"
+        }
+      },
+      {
+        "package": "HTMLString",
+        "repositoryURL": "https://github.com/alexaubry/HTMLString.git",
+        "state": {
+          "branch": null,
+          "revision": "373048cc4084dd7481c86e3bee41612eff93b14d",
+          "version": "5.0.0"
+        }
+      },
+      {
+        "package": "HTTPDownloader",
+        "repositoryURL": "https://github.com/kojirou1994/HTTPDownloader.git",
+        "state": {
+          "branch": "master",
+          "revision": "cf79dbba67385347ba855ab0b761c0c1671c9c5a",
+          "version": null
+        }
+      },
+      {
+        "package": "IntegerBytes",
+        "repositoryURL": "https://github.com/kojirou1994/IntegerBytes.git",
+        "state": {
+          "branch": null,
+          "revision": "4ca0fe556dfffe032d8e37a529633bc0374ed519",
+          "version": "0.0.1"
+        }
+      },
+      {
+        "package": "KeyPathKit",
+        "repositoryURL": "https://github.com/vincent-pradeilles/KeyPathKit.git",
+        "state": {
+          "branch": null,
+          "revision": "7d7728142a7f80f7d0ad396d153389ab5dde23ae",
+          "version": "1.6.1"
+        }
+      },
+      {
+        "package": "Krypto",
+        "repositoryURL": "https://github.com/kojirou1994/Krypto.git",
+        "state": {
+          "branch": "main",
+          "revision": "e1cbf946d84f6207822270fc1b100cd6dc1c6d6e",
+          "version": null
+        }
+      },
+      {
+        "package": "Kwift",
+        "repositoryURL": "https://github.com/kojirou1994/Kwift.git",
+        "state": {
+          "branch": null,
+          "revision": "9261a1508b935fe574c2aff29ffc4bbca7a034e8",
+          "version": "1.0.1"
+        }
+      },
+      {
+        "package": "MediaUtility",
+        "repositoryURL": "https://github.com/kojirou1994/MediaUtility.git",
+        "state": {
+          "branch": null,
+          "revision": "5c53ca2fa616d28bcda2e4982d4ce3b9e842664c",
+          "version": "0.4.0"
+        }
+      },
+      {
+        "package": "Precondition",
+        "repositoryURL": "https://github.com/kojirou1994/Precondition.git",
+        "state": {
+          "branch": null,
+          "revision": "8bfd454560f5bfafe9bf0db3e929ef65ba189400",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "package": "ProxyInfo",
+        "repositoryURL": "https://github.com/kojirou1994/ProxyInfo.git",
+        "state": {
+          "branch": null,
+          "revision": "d6e522e9c569a672fe8bd92700b15024ae3bc24d",
+          "version": "0.0.2"
+        }
+      },
+      {
+        "package": "SQLite.swift",
+        "repositoryURL": "https://github.com/stephencelis/SQLite.swift.git",
+        "state": {
+          "branch": null,
+          "revision": "5f5ad81ac0d0a0f3e56e39e646e8423c617df523",
+          "version": "0.13.2"
+        }
+      },
+      {
+        "package": "swift-algorithms",
+        "repositoryURL": "https://github.com/apple/swift-algorithms.git",
+        "state": {
+          "branch": null,
+          "revision": "b14b7f4c528c942f121c8b860b9410b2bf57825e",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "package": "swift-argument-parser",
+        "repositoryURL": "https://github.com/apple/swift-argument-parser.git",
+        "state": {
+          "branch": null,
+          "revision": "82905286cc3f0fa8adc4674bf49437cab65a8373",
+          "version": "1.1.1"
+        }
+      },
+      {
+        "package": "swift-collections",
+        "repositoryURL": "https://github.com/apple/swift-collections.git",
+        "state": {
+          "branch": null,
+          "revision": "48254824bb4248676bf7ce56014ff57b142b77eb",
+          "version": "1.0.2"
+        }
+      },
+      {
+        "package": "swift-log",
+        "repositoryURL": "https://github.com/apple/swift-log.git",
+        "state": {
+          "branch": null,
+          "revision": "5d66f7ba25daf4f94100e7022febf3c75e37a6c7",
+          "version": "1.4.2"
+        }
+      },
+      {
+        "package": "swift-nio",
+        "repositoryURL": "https://github.com/apple/swift-nio.git",
+        "state": {
+          "branch": null,
+          "revision": "d6e3762e0a5f7ede652559f53623baf11006e17c",
+          "version": "2.39.0"
+        }
+      },
+      {
+        "package": "swift-nio-extras",
+        "repositoryURL": "https://github.com/apple/swift-nio-extras.git",
+        "state": {
+          "branch": null,
+          "revision": "f73ca5ee9c6806800243f1ac415fcf82de9a4c91",
+          "version": "1.10.2"
+        }
+      },
+      {
+        "package": "swift-nio-ssl",
+        "repositoryURL": "https://github.com/apple/swift-nio-ssl.git",
+        "state": {
+          "branch": null,
+          "revision": "b5260a31c2a72a89fa684f5efb3054d8725a2316",
+          "version": "2.18.0"
+        }
+      },
+      {
+        "package": "swift-nio-transport-services",
+        "repositoryURL": "https://github.com/apple/swift-nio-transport-services.git",
+        "state": {
+          "branch": null,
+          "revision": "8ab824b140d0ebcd87e9149266ddc353e3705a3e",
+          "version": "1.11.4"
+        }
+      },
+      {
+        "package": "swift-numerics",
+        "repositoryURL": "https://github.com/apple/swift-numerics",
+        "state": {
+          "branch": null,
+          "revision": "0a5bc04095a675662cf24757cc0640aa2204253b",
+          "version": "1.0.2"
+        }
+      },
+      {
+        "package": "swift-system",
+        "repositoryURL": "https://github.com/apple/swift-system.git",
+        "state": {
+          "branch": null,
+          "revision": "836bc4557b74fe6d2660218d56e3ce96aff76574",
+          "version": "1.1.1"
+        }
+      },
+      {
+        "package": "swift-tools-support-core",
+        "repositoryURL": "https://github.com/apple/swift-tools-support-core.git",
+        "state": {
+          "branch": null,
+          "revision": "b7667f3e266af621e5cc9c77e74cacd8e8c00cb4",
+          "version": "0.2.5"
+        }
+      },
+      {
+        "package": "Units",
+        "repositoryURL": "https://github.com/kojirou1994/Units.git",
+        "state": {
+          "branch": null,
+          "revision": "af4decba5b9cdb9e788a2e348be5e0ec6cc5b780",
+          "version": "0.0.1"
+        }
+      },
+      {
+        "package": "URLFileManager",
+        "repositoryURL": "https://github.com/kojirou1994/URLFileManager.git",
+        "state": {
+          "branch": null,
+          "revision": "b52f9567ee80ef991ebf9c76d0edc2d9a6b63c47",
+          "version": "0.1.3"
+        }
+      },
+      {
+        "package": "XMLCoder",
+        "repositoryURL": "https://github.com/MaxDesiatov/XMLCoder.git",
+        "state": {
+          "branch": null,
+          "revision": "f30119af03996939cc4f54e0bf0dda9f88a84da5",
+          "version": "0.13.1"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

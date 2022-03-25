@@ -20,8 +20,10 @@ let package = Package(
       targets: ["HLSDownloader"])
   ],
   dependencies: [
-    .package(url: "https://github.com/kojirou1994/Kwift.git", from: "0.8.0"),
+    .package(url: "https://github.com/kojirou1994/Kwift.git", from: "1.0.0"),
     .package(url: "https://github.com/kojirou1994/URLFileManager.git", from: "0.0.3"),
+    .package(url: "https://github.com/kojirou1994/Units.git", from: "0.0.1"),
+    .package(url: "https://github.com/kojirou1994/IntegerBytes.git", from: "0.0.1"),
     .package(url: "https://github.com/alexaubry/HTMLString.git", from: "5.0.0"),
     .package(url: "https://github.com/kojirou1994/Executable.git", from: "0.0.1"),
     .package(url: "https://github.com/kojirou1994/MediaUtility.git", from: "0.1.0"),
@@ -64,6 +66,7 @@ let package = Package(
         "URLFileManager",
         .product(name: "Logging", package: "swift-log"),
         "KeyPathKit",
+        .product(name: "Units", package: "Units"),
     ]),
     .target(
       name: "HLSDownloader",
@@ -73,6 +76,7 @@ let package = Package(
         "HTTPDownloader",
         "Krypto",
         .product(name: "Algorithms", package: "swift-algorithms"),
+        .product(name: "IntegerBytes", package: "IntegerBytes"),
     ]),
     .target(
       name: "Demo",
@@ -82,6 +86,7 @@ let package = Package(
       dependencies: [
         "HLS",
         "HLSDownloader",
+        .product(name: "AsyncHTTPClientProxy", package: "ProxyInfo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
     .target(
@@ -95,8 +100,9 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: "SQLite", package: "SQLite.swift"),
       ]),
+    .target(name: "CWebVTT"),
     .testTarget(
       name: "HLSTests",
-      dependencies: ["HLS"]),
+      dependencies: ["HLS", "CWebVTT"]),
   ]
 )
