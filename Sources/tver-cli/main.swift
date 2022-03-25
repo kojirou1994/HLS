@@ -51,6 +51,9 @@ extension TverCli {
   struct Batch: ParsableCommand {
 
     @Option
+    var tmp: String?
+
+    @Option
     var db: String?
 
     @Option(help: "Records expire days.")
@@ -64,7 +67,7 @@ extension TverCli {
 
     func run() throws {
 
-      let downloader = try TverDownloader()
+      let downloader = try TverDownloader(tmp: tmp)
 
       if let dbFile = db {
         let db = try Connection(dbFile)
@@ -72,11 +75,30 @@ extension TverCli {
 
         let id = Expression<String>("id")
         let date = Expression<Date>("date")
+        let filename = Expression<String?>("filename")
 
+        print("creating table if not exists.")
         try db.run(tver.create(ifNotExists: true) { t in
           t.column(id, primaryKey: true)
           t.column(date)
         })
+
+        do { // migration 1: add filename column
+          let stmt = try db.prepare("PRAGMA table_info(tver)")
+
+          let columnNames = stmt.makeIterator().map { (row) -> String in
+            return row[1] as? String ?? ""
+          }
+
+          let existed = columnNames.contains(where: { dbColumn -> Bool in
+            dbColumn.caseInsensitiveCompare("filename") == .orderedSame
+          })
+
+          if !existed {
+            print("adding filename column")
+            try db.run(tver.addColumn(filename))
+          }
+        }
 
         // clean
         if let cleanDbDay = cleanDbDay {
@@ -106,9 +128,17 @@ extension TverCli {
           }
         }
 
-        downloader.didDownloadHref = { href in
+        downloader.fileAlreadyExisted = { checkFilename in
+          let query = tver
+            .filter(filename == checkFilename)
+            .count
+          let count = try! db.scalar(query)
+          return count != 0
+        }
+
+        downloader.didDownloadHref = { href, outputFilename in
           do {
-            let query = tver.insert(id <- href, date <- Date())
+            let query = tver.insert(id <- href, date <- Date(), filename <- outputFilename)
             try db.run(query)
           } catch {
             fatalError("\(error)")
@@ -148,7 +178,7 @@ extension TverCli {
 
     func run() throws {
 
-      let downloader = try TverDownloader()
+      let downloader = try TverDownloader(tmp: nil)
 
       for url in urls {
         do {

@@ -3,7 +3,7 @@ struct YoutubeDLDumpInfo: Codable {
 
   let subtitles: [String: [Subtitle]]
 
-  struct Subtitle: Codable {
+  struct Subtitle: Codable, Hashable {
     let url: String
     let ext: String
   }
@@ -29,4 +29,13 @@ struct YoutubeDLDumpInfo: Codable {
       "\(String(describing: Self.self))(formatID: \(format_id), width: \(width ?? 0), height: \(height ?? 0), vcodec: \(vcodec), acodec: \(acodec ?? "none"), protocol: \(`protocol`))"
     }
   }
+}
+
+import ExecutableDescription
+
+struct YoutubeDL: Executable {
+  static let executableName: String = "yt-dlp"
+  static let alternativeExecutableNames: [String] = ["youtube-dl"]
+
+  let arguments: [String]
 }

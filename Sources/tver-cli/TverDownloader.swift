@@ -11,10 +11,12 @@ final class TverDownloader {
   let baseComponents: URLComponents
   let http: HTTPClient
   let fm = URLFileManager.default
+  let tmp: String
 
-  init() throws {
-    let http = HTTPClient(eventLoopGroupProvider: .createNew, configuration: .init(proxy: .environment(.init(parseUppercaseKey: true))))
-
+  init(tmp: String?) throws {
+    let proxy = HTTPClient.Configuration.Proxy.environment(.init(parseUppercaseKey: true))
+    print("http proxy: \(String(describing: proxy))")
+    let http = HTTPClient(eventLoopGroupProvider: .createNew, configuration: .init(proxy: proxy))
     print("logging in")
     #if DEBUG
     let token = "t1.1666023555.eyJhcGlrZXkiOiJlMjRmYWEyMS0zMTNjLTRjNjItYjlkMi0wNzJmMjI3ZWVkZGQiLCJ1c2VyIjoiMTI3YTI4ZDgtZTQyNS04OGY2LTA4ZWEtNmVmYTkyMDI4YWY2In0.49331739.27516aee2cff4034a14f9a1eb957bf9c"
@@ -34,6 +36,11 @@ final class TverDownloader {
     urlComponents.queryItems = [.init(name: "token", value: token)]
     self.baseComponents = urlComponents
     self.http = http
+    if let tmp = tmp, !tmp.isEmpty {
+      self.tmp = tmp
+    } else {
+      self.tmp = "./"
+    }
   }
 
   deinit {
@@ -66,7 +73,7 @@ final class TverDownloader {
     let dramaInfo = try JSONDecoder().decode(TverMediaInfo.self, from: resBody)
     if let episodes = dramaInfo.episode, !episodes.isEmpty {
       episodes.forEach { episode in
-        try! download(http: http, meta: .init(title: episode.title, subtitle: episode.subtitle, href: episode.href, area: area))
+        try! download(http: http, meta: .init(title: episode.title, subtitle: episode.subtitle ?? episode.title, href: episode.href, area: area))
       }
     } else {
       try! download(http: http, meta: .init(title: dramaInfo.main.title, subtitle: dramaInfo.main.subtitle, href: dramaInfo.main.href, area: area))
@@ -85,19 +92,22 @@ final class TverDownloader {
   }
 
   var shouldDownloadHref: ((_ href: String) -> Bool)?
-  var didDownloadHref: ((_ href: String) -> Void)?
+  var fileAlreadyExisted: ((_ filename: String) -> Bool)?
+  var didDownloadHref: ((_ href: String, _ filename: String) -> Void)?
 
   private func download(http: HTTPClient, meta: TverDownloadMeta) throws {
 
     let title = meta.title.isBlank ? meta.href : meta.title
     let subtitle = meta.subtitle.isBlank ? title : meta.subtitle
 
-    let cacheDir = "[Downloading] \(title) - \(subtitle)".safeFilename()
+    let cacheDir = tmp + "/" + "[Downloading] \(title) - \(subtitle)".safeFilename()
     let tempOutFileName = "\(title) - \(subtitle)"
-    let outputFile: URL
+    let outputDirectoryName = title.safeFilename()
+    let outputFilename = subtitle.safeFilename()
+    var outputFileURL: URL
     do {
-      let maybeOldSeriesDirectoryURL = URL(fileURLWithPath: title.safeFilename())
       let rootDirectoryURL: URL
+      let maybeOldSeriesDirectoryURL = URL(fileURLWithPath: title.safeFilename())
       if let area = meta.area {
         let areaRootDirectoryURL = URL(fileURLWithPath: area.name.safeFilename())
         try fm.createDirectory(at: areaRootDirectoryURL)
@@ -106,27 +116,42 @@ final class TverDownloader {
           #warning("should join dir")
           try fm.moveItem(at: maybeOldSeriesDirectoryURL, toDirectory: areaRootDirectoryURL)
         }
-        rootDirectoryURL = areaRootDirectoryURL.appendingPathComponent(title.safeFilename())
+        rootDirectoryURL = areaRootDirectoryURL.appendingPathComponent(outputDirectoryName)
       } else {
-        rootDirectoryURL = URL(fileURLWithPath: title.safeFilename())
+        rootDirectoryURL = URL(fileURLWithPath: outputDirectoryName)
       }
-      outputFile = rootDirectoryURL
-        .appendingPathComponent(subtitle.safeFilename())
+      outputFileURL = rootDirectoryURL
+        .appendingPathComponent(outputFilename)
         .appendingPathExtension("mkv")
     }
 
     guard shouldDownloadHref?(meta.href) != false else {
       return
     }
-    if URLFileManager.default.fileExistance(at: outputFile).exists {
-      print("Already existed: \(outputFile.path)")
-      didDownloadHref?(meta.href)
-      return
+
+    func genDBFilename(suffix: String = "") -> String {
+      var str = "\(outputDirectoryName)/\(outputFilename)"
+      if !suffix.isEmpty {
+        str.append(" \(suffix)")
+      }
+      return str
+    }
+
+    var databaseSavedFilename = genDBFilename()
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HHmmss"
+    while URLFileManager.default.fileExistance(at: outputFileURL).exists
+    || (fileAlreadyExisted?(databaseSavedFilename) == true) {
+      Thread.sleep(forTimeInterval: 0.5)
+      let suffix = formatter.string(from: Date()).safeFilename()
+      print("Already existed: \(outputFileURL.path), try to use suffix \(suffix)")
+      databaseSavedFilename = genDBFilename(suffix: suffix)
+      outputFileURL = outputFileURL.deletingLastPathComponent().appendingPathComponent("\(outputFilename) \(suffix)").appendingPathExtension("mkv")
     }
 
     do {
       print("Downloading...\(meta)")
-      let ytbJSON = try retry(body: AnyExecutable(executableName: "youtube-dl", arguments: ["-j", meta.url])
+      let ytbJSON = try retry(body: YoutubeDL(arguments: ["-j", meta.url])
                                 .launch(use: TSCExecutableLauncher())
                                 .output.get()
       )
@@ -142,32 +167,41 @@ final class TverDownloader {
         .last.unwrap("No valid formats")
       print("\nselected format: \(bestFormat)")
 
-      try URLFileManager.default.createDirectory(at: outputFile.deletingLastPathComponent())
+      try URLFileManager.default.createDirectory(at: outputFileURL.deletingLastPathComponent())
 
       do { // Download hls
         let hlsCli = AnyExecutable(executableName: "hls-cli", arguments: ["-o", cacheDir, "-f", tempOutFileName, bestFormat.url])
 
         try retry(body: hlsCli.launch(use: TSCExecutableLauncher(outputRedirection: .none)))
 
-        try URLFileManager.default.moveItem(at: URL(fileURLWithPath: cacheDir).appendingPathComponent(tempOutFileName).appendingPathExtension("mkv"), to: outputFile)
+        try URLFileManager.default.moveItem(at: URL(fileURLWithPath: cacheDir).appendingPathComponent(tempOutFileName).appendingPathExtension("mkv"), to: outputFileURL)
       }
 
-      tverInfo.subtitles.forEach { lang, subtitles in
-        subtitles.forEach { subtitle in
-          do {
-            let tempO = UUID().uuidString
-            let curl = AnyExecutable(executableName: "curl", arguments: ["-o", tempO, subtitle.url])
-            try retry(body: curl.launch(use: TSCExecutableLauncher(outputRedirection: .none)))
-            let subURL = try URLFileManager.default.moveAndAutoRenameItem(at: URL(fileURLWithPath: tempO), to: outputFile.replacingPathExtension(with: subtitle.ext))
-            print("Subtitle downloaded: \(subURL.path)")
-          } catch {
-            print("Subtitle failed: \(subtitle)")
+      do { // download all subtitles
+        var subtitleContents = Set<[UInt8]>()
+        Set(tverInfo.subtitles.map(\.value).joined())
+          .forEach { subtitle in
+            do {
+              let body = try retry(body: http.get(url: subtitle.url).wait().body.unwrap("no http body when downloading subtitle"))
+              let subtitleContent = body.getBytes(at: body.readerIndex, length: body.readableBytes)!
+              if subtitleContents.insert(subtitleContent).inserted {
+                if subtitleContent.starts(with: "#EXTM3U".utf8) {
+                  print("ignored m3u8 subtitle: \(subtitle.url)")
+                  return
+                }
+                let subURL = URLFileManager.default.makeUniqueFileURL(outputFileURL.replacingPathExtension(with: subtitle.ext))
+                try Data(subtitleContent).write(to: subURL)
+                print("Subtitle downloaded: \(subURL.path)")
+              }
+            } catch {
+              print("Subtitle failed: \(subtitle)")
+            }
+
           }
-        }
       }
 
       try? retry(body: URLFileManager.default.removeItem(at: URL(fileURLWithPath: cacheDir)))
-      didDownloadHref?(meta.href)
+      didDownloadHref?(meta.href, databaseSavedFilename)
     } catch {
       print("Downloading failed: \(error)")
     }

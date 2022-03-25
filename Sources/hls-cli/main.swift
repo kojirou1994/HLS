@@ -4,6 +4,7 @@ import AsyncHTTPClient
 import HLS
 import HLSDownloader
 import KwiftUtility
+import AsyncHTTPClientProxy
 
 public enum HlsInput {
   case remote(url: URL)
@@ -60,7 +61,9 @@ struct HlsCli: ParsableCommand {
   var url: String
 
   func run() throws {
-    let httpClient = HTTPClient(eventLoopGroupProvider: .createNew)
+    let proxy = HTTPClient.Configuration.Proxy.environment(.init(parseUppercaseKey: true))
+    print("http proxy: \(String(describing: proxy))")
+    let httpClient = HTTPClient(eventLoopGroupProvider: .createNew, configuration: .init(proxy: proxy))
     defer {
       try! httpClient.syncShutdown()
     }

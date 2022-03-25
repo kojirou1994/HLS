@@ -1,4 +1,7 @@
 import KwiftUtility
+import Units
+
+public typealias HLSResolution = Resolution<UInt32>
 
 extension String {
 
@@ -16,11 +19,11 @@ extension String {
     return v
   }
 
-  func toResolution() throws -> Resolution  {
-    guard let v = Resolution(self) else {
-      throw HlsTagParseError.invalidResolution(self)
+  func toResolution() throws -> HLSResolution  {
+    switch HLSResolution.parse(self) {
+    case .success(let v): return v
+    case .failure: throw HlsTagParseError.invalidResolution(self)
     }
-    return v
   }
 
 }
@@ -46,6 +49,11 @@ extension Dictionary where Key == String, Value == String {
 }
 
 extension Resolution: Comparable {
+
+  private var size: Double {
+    Double(width) * Double(height)
+  }
+
   public static func < (lhs: Self, rhs: Self) -> Bool {
     lhs.size < rhs.size
   }

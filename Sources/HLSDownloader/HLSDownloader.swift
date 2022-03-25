@@ -9,6 +9,7 @@ import Precondition
 import HLS
 import MediaTools
 import ExecutableLauncher
+import IntegerBytes
 
 struct HlsSegmentDownloadItem: HTTPDownloaderTaskInfoProtocol {
   let url: URL
@@ -74,13 +75,19 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
     print("Start downloading segment \(info.segmentIndex)")
   }
 
+  private(set) var records: [Int: (Int64, Int64)] = .init()
+
   func downloadProgressChanged(
     downloader: HTTPDownloader<HlsDownloaderDelegate>,
     info: TaskInfo,
     total: Int64,
     downloaded: Int64
   ) {
+    records[info.segmentIndex] = (total, downloaded)
+  }
 
+  func downloadWillRetry(downloader: HTTPDownloader<HlsDownloaderDelegate>, info: HlsSegmentDownloadItem, error: Error, restRetry: Int) {
+    print("Failed to download segment \(info.segmentIndex): \(error), retrying...")
   }
 
   func downloadFinished(
@@ -88,9 +95,12 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
     info: TaskInfo,
     result: Result<HTTPClientFileDownloader.Response, Error>
   ) {
+    defer {
+      records[info.segmentIndex] = nil
+    }
     switch result {
     case .failure(let error):
-      print("Downloading failed")
+      print("Segment \(info.segmentIndex) failed, downloaded: \(records[info.segmentIndex] ?? (0, 0))")
       self.error = DownloadError(url: info.url, error: error)
       downloader.cancelAll()
     case .success:
@@ -105,7 +115,7 @@ final class HlsDownloaderDelegate: HTTPDownloaderDelegate {
             // see chapter 3
             let paddingCount = 16 - Int.bitWidth/UInt8.bitWidth
             var bytes = [UInt8](repeating: 0, count: paddingCount)
-            bytes.append(contentsOf: seqNum.bytes)
+            bytes.append(contentsOf: IntegerBytes(seqNum, endian: .big))
             return bytes
           }
 
@@ -307,6 +317,7 @@ extension HLSDownloader {
         let queue = HTTPDownloader(httpClient: http,
                                    retryLimit: retryLimit,
                                    maxCoucurrent: maxCoucurrent, timeout: .minutes(10),
+                                   allowUncleanFinished: true,
                                    delegate: delegate)
         queue.download(contentsOf: downloadItems)
 
@@ -423,7 +434,7 @@ extension HLSDownloader {
 
       for url in inputURLs {
         try autoreleasepool {
-          let data = try Data(contentsOf: url, options: .alwaysMapped)
+          let data = try Data(contentsOf: url, options: .uncached)
           handle.write(data)
         }
       }

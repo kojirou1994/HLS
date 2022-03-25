@@ -1,3 +1,9 @@
+public struct TverBool: Codable {
+  public let cast: Bool?
+  public let is_simul: Bool?
+  public let is_new: Bool?
+}
+
 public struct TverMediaInfo: Codable {
   public let main: Main
   public struct Main: Codable {
@@ -58,7 +64,7 @@ public struct TverMediaInfo: Codable {
   public let episode: [Episode]?
   public struct Episode: Codable {
     public let title: String
-    public let subtitle: String
+    public let subtitle: String?
     public let href: String
   }
   private enum CodingKeys: String, CodingKey {

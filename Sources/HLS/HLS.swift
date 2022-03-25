@@ -683,7 +683,7 @@ public enum HlsTag: Equatable {
      this with a format identifier such as "stpp.ttml.im1t".
      */
     public let codecs: String
-    public let resolution: Resolution?
+    public let resolution: HLSResolution?
     public let frameRate: String?
     public let hdcpLevel: HdcpLevel?
     public enum HdcpLevel: String, CaseIterable {
@@ -760,7 +760,7 @@ public enum HlsTag: Equatable {
     public let bandwidth: Int
     public let averageBandwidth: Int?
     public let codecs: String
-    public let resolution: Resolution?
+    public let resolution: HLSResolution?
     public let hdcpLevel: String?
     public let videoRange: VideoRange?
     public typealias VideoRange = StreamInf.VideoRange

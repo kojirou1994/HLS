@@ -1,6 +1,7 @@
 import Foundation
 import MediaUtility
 import HTMLString
+import KwiftExtension
 
 // MARK: Web VTT to SRT
 public enum WebVTT {
