@@ -104,6 +104,12 @@ public struct MediaPlaylist {
   public struct MediaSegment: Equatable {
     public let uri: String
     public let inf: HlsTag.Inf
+    public let byteRange: HlsTag.ByteRange?
+    public let discontinuity: Bool
+    public let map: HlsTag.Map?
+    public let programDateTime: HlsTag.ProgramDateTime?
+    public let gap: Bool
+    public let bitrate: Int?
   }
 }
 

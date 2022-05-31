@@ -5,29 +5,45 @@ public struct PlaylistParseContext {
 
   var hasM3u: Bool = false
   var version: Int?
-  var targetDuration: Int?
-  var mediaSequenceNumber: Int?
-  var playlistType: HlsTag.PlaylistType?
-  var iFramesOnly: Bool?
-  var endlist: Bool?
+
+  // MARK: Tags apply only to the next Media Segment
   var inf: HlsTag.Inf?
-  var map: HlsTag.Map?
-  #warning("non standard")
-  var key: HlsTag.Key?
+  var byteRange: HlsTag.ByteRange?
+  var discontinuity: Bool = false
+  var programDateTime: HlsTag.ProgramDateTime?
   var gap: Bool = false
-  var programDateTime: String?
+
+  // MARK: Tags apply to every Media Segment between it and the next same tag in the Playlist file (or the end of the Playlist file)
+  var map: HlsTag.Map?
   var bitrate: Int?
-  var unusedTags = [HlsTag]()
+  var key: HlsTag.Key?
+
+  // MARK: Media Playlist Tags
+  /// maximum Media Segment duration
+  var targetDuration: Int?
+  /// Media Sequence Number of the first Media Segment
+  var mediaSequenceNumber: Int?
+  var discontinuitySequence: HlsTag.DiscontinuitySequence?
+  var endlist: Bool = false
+  var playlistType: HlsTag.PlaylistType?
+  var iFramesOnly: Bool = false
+
+  // MARK: Master Playlist Tags
   var media = [HlsTag.Media]()
-  var iFrameStreamInf = [HlsTag.IFrameStreamInf]()
   var streamInf: HlsTag.StreamInf?
+  var iFrameStreamInf = [HlsTag.IFrameStreamInf]()
+
+  // MARK: Media or Master Playlist Tags
   var independentSegments = false
   var playlists = [(uri: String, streamInf: HlsTag.StreamInf)]()
   var segments = [MediaPlaylist.MediaSegment]()
 
+  // MARK: Result
   var _verifiedPlaylisyType: _PlaylistType = .unknown
 
+  /// parsed lines
   public private(set) var lines: [PlaylistLine.GoodLine] =  []
+  var unusedTags = [HlsTag]()
   private let logger: Logger?
 
   public init(logger: Logger? = nil) {
@@ -77,68 +93,41 @@ public struct PlaylistParseContext {
         }
         inf = v
       case .byteRange(let v):
-#warning("not handle it now")
-        break
+        byteRange = v
       case .discontinuity:
-#warning("not handle it now")
-        break
+        discontinuity = true
       case .key(let v):
-#warning("multiple key not supported yet")
-        if programDateTime != nil {
-          throw PlaylistParseError.duplicate(.key(v))
-        }
+        // TODO: multiple EXT-X-KEY tags
         key = v
       case .map(let v):
         map = v
       case .programDateTime(let v):
-        if programDateTime != nil {
-          throw PlaylistParseError.unused(tag)
-        }
-        programDateTime = v.dateTime
+        programDateTime = v
       case .dateRange(let v):
-#warning("not handle it now")
+        // TODO: Handle it
+        print("ignored date range: \(v)")
+        break
       case .gap:
         gap = true
       case .bitrate(let v):
         bitrate = v.bitrate
         /// media playlist tags
       case .targetDuration(let v):
-        if targetDuration != nil {
-          throw PlaylistParseError.duplicate(tag)
-        }
         targetDuration = v.duration
       case .mediaSequence(let v):
-        if mediaSequenceNumber != nil {
-          throw PlaylistParseError.duplicate(tag)
-        }
         mediaSequenceNumber = v.number
       case .discontinuitySequence(let v):
-#warning("not handle it now")
-        break
+        discontinuitySequence = v
       case .endlist:
-        if endlist != nil {
-          throw PlaylistParseError.duplicate(tag)
-        }
         endlist = true
-#warning("should stop?")
-        //                    break main
       case .playlistType(let v):
-        if playlistType != nil {
-          throw PlaylistParseError.duplicate(tag)
-        }
         playlistType = v
       case .iFramesOnly:
-        if iFramesOnly != nil {
-          throw PlaylistParseError.duplicate(tag)
-        }
         iFramesOnly = true
         /// master playlist tags
       case .media(let v):
         media.append(v)
       case .streamInf(let v):
-        if streamInf != nil {
-          throw PlaylistParseError.unused(tag)
-        }
         streamInf = v
       case .iFrameStreamInf(let v):
         iFrameStreamInf.append(v)
@@ -157,27 +146,32 @@ public struct PlaylistParseContext {
       switch _verifiedPlaylisyType {
       case .unknown: fatalError()
       case .known(.media):
-#warning("apply map, programDateTime,gap, bitrate")
         guard let infV = inf else {
           fatalError("No inf")
         }
-        let segment = MediaPlaylist.MediaSegment(uri: uri, inf: infV)
-        // preserve duplicated segment
+        let segment = MediaPlaylist.MediaSegment(
+          uri: uri, inf: infV, byteRange: byteRange,
+          discontinuity: discontinuity, map: map,
+          programDateTime: programDateTime, gap: gap,
+          bitrate: byteRange == nil ? bitrate : nil
+        )
 
+        // preserve duplicated segment
         if segment != segments.last {
           segments.append(segment)
         }
+
+        // clean uri properties
         inf = nil
+        byteRange = nil
+        discontinuity = false
         programDateTime = nil
         gap = false
       case .known(.master):
-
         if let streamInfV = streamInf {
-          //                        print(streamInfV)
           playlists.append((uri: uri, streamInf: streamInfV))
           streamInf = nil
         } else {
-          //                        playlists.append(.init(uri: uri, streamInf: nil))
           fatalError("No streamInf")
         }
       }
