@@ -83,10 +83,7 @@ public struct MasterPlaylist {
   }
 }
 
-#warning("unfinished")
 public struct GlobalProperty {
-  public let map: HlsTag.Map?
-  #warning("non standard")
   public let key: HlsTag.Key?
 }
 
