@@ -397,7 +397,6 @@ public enum HlsTag: Equatable {
       self.channels = nil
     }
 
-
     init(_ dictionary: [String : String]) throws {
       mediatype = try dictionary.get("TYPE")
       uri = dictionary["URI"]
@@ -440,11 +439,13 @@ public enum HlsTag: Equatable {
     /// CAPTIONS does not specify a Rendition; the closed-caption media is
     /// present in the Media Segments of every video Rendition.
     public let mediatype: MediaType
-    public enum MediaType: String, Equatable, CaseIterable {
+    public enum MediaType: String, Equatable, CaseIterable, CustomStringConvertible {
       case audio = "AUDIO"
       case video = "VIDEO"
       case subtitles = "SUBTITLES"
       case closedCaptions = "CLOSED-CAPTIONS"
+
+      public var description: String { rawValue.lowercased() }
     }
 
     /// The value is a quoted-string containing a URI that identifies the
@@ -481,11 +482,12 @@ public enum HlsTag: Equatable {
     /// a different choice.  This attribute is OPTIONAL.  Its absence
     /// indicates an implicit value of NO.
     public let `default`: Default?
-    public enum Default: String, Equatable, CaseIterable {
+    public enum Default: String, Equatable, CaseIterable, CustomStringConvertible {
       case yes = "YES"
       case no = "NO"
 
-      var boolValue: Bool { self == .yes }
+      public var boolValue: Bool { self == .yes }
+      public var description: String { boolValue.description }
     }
     /// The value is an enumerated-string; valid strings are YES and NO.
     /// This attribute is OPTIONAL.  Its absence indicates an implicit
@@ -523,7 +525,7 @@ public enum HlsTag: Equatable {
     ///
     /// For all other TYPE values, the INSTREAM-ID MUST NOT be specified.
     public let instreamID: InstreamID?
-    public enum InstreamID: RawRepresentable, Equatable, CaseIterable {
+    public enum InstreamID: RawRepresentable, Equatable, CaseIterable, CustomStringConvertible {
       public static var allCases: [Self] {
         [.cc1, .cc2, .cc3, .cc4, .service(0)]
       }
@@ -562,6 +564,8 @@ public enum HlsTag: Equatable {
       case cc3
       case cc4
       case service(Int)
+
+      public var description: String { rawValue }
     }
     /// The value is a quoted-string containing one or more Uniform Type
     /// Identifiers [UTI] separated by comma (,) characters.  This
@@ -702,9 +706,11 @@ public enum HlsTag: Equatable {
       case type1 = "TYPE-1"
     }
     public let videoRange: VideoRange?
-    public enum VideoRange: String, CaseIterable {
+    public enum VideoRange: String, CaseIterable, CustomStringConvertible {
       case sdr = "SDR"
       case pq = "PQ"
+
+      public var description: String { rawValue }
     }
     /**
      It MUST match the value of the

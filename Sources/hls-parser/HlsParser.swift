@@ -53,7 +53,66 @@ struct HlsParser: AsyncParsableCommand {
         }
       }
 
-    let playlist = try context.result(url: baseURL)
-    dump(playlist)
+    switch try context.result(url: baseURL) {
+    case .master(let master):
+      print("master")
+      if !master.variants.isEmpty {
+        print("variants:")
+        master.variants.forEach { variant in
+          print(variant.uri)
+          print(variant.streamInf)
+          [variant.streamInf.video, variant.streamInf.audio, variant.streamInf.subtitles, variant.streamInf.closedCaptions]
+            .compactMap { $0 }
+            .forEach { groupID in
+              let media = master.medias.first(where: { $0.groupID == groupID })!
+              print(" - " + (media.uri ?? "no uri"))
+              print("   " + media.cliOutput)
+            }
+          print("\n")
+        }
+      }
+    case .media(let media):
+      print("media")
+      dump(media)
+    }
+
+    let unusedTags = context.unusedTags
+    if !unusedTags.isEmpty {
+      print("unused tags:")
+      unusedTags.forEach { print($0) }
+    }
+  }
+}
+
+extension HlsTag.Media {
+  var cliOutput: String {
+    var parts = [(String, String)]()
+    parts.append(("name", name))
+    parts.append(("groupID", groupID))
+    if let language = language {
+      parts.append(("language", language))
+    }
+    if let assocLanguage = assocLanguage {
+      parts.append(("assocLanguage", assocLanguage))
+    }
+    if let `default` = `default` {
+      parts.append(("default", `default`.boolValue.description))
+    }
+    if let autoselect = autoselect {
+      parts.append(("autoselect", autoselect.boolValue.description))
+    }
+    if let forced = forced {
+      parts.append(("forced", forced.boolValue.description))
+    }
+    if let instreamID = instreamID {
+      parts.append(("instreamID", instreamID.description))
+    }
+    if let characteristics = characteristics {
+      parts.append(("characteristics", characteristics))
+    }
+    if let channels = channels {
+      parts.append(("channels", channels))
+    }
+    return parts.lazy.map { $0.0 + ": " + $0.1 }.joined(separator: ", ")
   }
 }

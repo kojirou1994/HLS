@@ -43,7 +43,7 @@ public struct PlaylistParseContext {
 
   /// parsed lines
   public private(set) var lines: [PlaylistLine.GoodLine] =  []
-  var unusedTags = [HlsTag]()
+  public private(set)var unusedTags: [HlsTag] = []
   private let logger: Logger?
 
   public init(logger: Logger? = nil) {
