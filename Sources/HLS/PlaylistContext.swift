@@ -189,7 +189,7 @@ public struct PlaylistParseContext {
       precondition(targetDuration != nil)
       let mediaP = MediaPlaylist(
         url: url, version: version!,
-        globalProperty: .init(map: map, key: key), segments: segments)
+        globalProperty: .init(key: key), segments: segments)
       return .media(mediaP)
     case .master:
       let master = MasterPlaylist(url: url, medias: media, iFrameStreamInf: iFrameStreamInf, variants: playlists)
