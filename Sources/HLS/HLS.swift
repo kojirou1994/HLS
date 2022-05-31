@@ -261,13 +261,13 @@ public enum HlsTag: Equatable {
   public struct Map: _HlsAttributeTag {
     init(_ dictionary: [String : String]) throws {
       uri = try dictionary.get("URI")
-      byteRange = dictionary["BYTERANGE"]
+      byteRange = try dictionary["BYTERANGE"].map(ByteRange.init)
     }
 
     var type: _HlsTagType {.map}
 
     public let uri: String
-    public let byteRange: String?
+    public let byteRange: ByteRange?
   }
 
   /// 4.4.2.6
