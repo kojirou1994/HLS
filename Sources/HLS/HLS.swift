@@ -1,5 +1,4 @@
 import Foundation
-import KwiftUtility
 
 internal enum Category {
   case basic
@@ -183,8 +182,7 @@ public enum HlsTag: Equatable {
     init(_ string: String) throws {
       if let sep = string.firstIndex(of: ",") {
         duration = String(string[..<sep])
-        let title = String(string[string.index(after: sep)...])
-        self.title = title.isBlank ? nil : title
+        title = String(string[string.index(after: sep)...])
       } else {
         duration = string
         title = nil
@@ -856,7 +854,6 @@ public enum PlaylistLine {
 
   public enum GarbageLine {
     ///Blank lines are ignored.
-    case blank
     case comment(String)
   }
 
@@ -876,10 +873,6 @@ public enum PlaylistLine {
   }
 
   public init(line: String) throws {
-    guard !line.isBlank else {
-      self = .garbage(.blank)
-      return
-    }
     if line.hasPrefix("#") {
       if line.hasPrefix("#EXT") {
         // tag

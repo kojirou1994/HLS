@@ -1,4 +1,3 @@
-import KwiftUtility
 import Units
 
 public typealias HLSResolution = Resolution<UInt32>

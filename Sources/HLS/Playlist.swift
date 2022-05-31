@@ -1,5 +1,4 @@
 import Foundation
-import KwiftExtension
 
 internal enum _PlaylistType {
   case unknown

@@ -1,4 +1,4 @@
-// swift-tools-version:5.2
+// swift-tools-version: 5.6
 
 import PackageDescription
 
@@ -17,7 +17,9 @@ let package = Package(
       targets: ["WebVTT"]),
     .library(
       name: "HLSDownloader",
-      targets: ["HLSDownloader"])
+      targets: ["HLSDownloader"]),
+    .executable(name: "tver-cli", targets: ["tver-cli"]),
+    .executable(name: "hls-cli", targets: ["hls-cli"]),
   ],
   dependencies: [
     .package(url: "https://github.com/kojirou1994/Kwift.git", from: "1.0.0"),
@@ -28,11 +30,11 @@ let package = Package(
     .package(url: "https://github.com/kojirou1994/Executable.git", from: "0.0.1"),
     .package(url: "https://github.com/kojirou1994/MediaUtility.git", from: "0.1.0"),
     .package(url: "https://github.com/swift-server/async-http-client.git", .exact("1.5.1")),
-    .package(url: "https://github.com/kojirou1994/HTTPDownloader.git", .branch("master")),
+    .package(url: "https://github.com/kojirou1994/HTTPDownloader.git", branch: "master"),
     .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-algorithms.git", from: "1.0.0"),
     .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-    .package(url: "https://github.com/kojirou1994/Krypto.git", .branch("main")),
+    .package(url: "https://github.com/kojirou1994/Krypto.git", branch: "main"),
     .package(url: "https://github.com/kojirou1994/ProxyInfo.git", from: "0.0.1"),
     .package(url: "https://github.com/vincent-pradeilles/KeyPathKit.git", from: "1.0.0"),
     .package(url: "https://github.com/MaxDesiatov/XMLCoder.git", .upToNextMajor(from: "0.13.0")),
@@ -59,13 +61,7 @@ let package = Package(
     .target(
       name: "HLS",
       dependencies: [
-        .product(name: "KwiftUtility", package: "Kwift"),
-        "Executable",
-        .product(name: "MediaTools", package: "MediaUtility"),
-        "HTMLString",
-        "URLFileManager",
         .product(name: "Logging", package: "swift-log"),
-        "KeyPathKit",
         .product(name: "Units", package: "Units"),
     ]),
     .target(
@@ -75,13 +71,16 @@ let package = Package(
         "WebVTT",
         "HTTPDownloader",
         "Krypto",
+        "URLFileManager",
+        "HTMLString",
+        .product(name: "MediaTools", package: "MediaUtility"),
         .product(name: "Algorithms", package: "swift-algorithms"),
         .product(name: "IntegerBytes", package: "IntegerBytes"),
     ]),
-    .target(
+    .executableTarget(
       name: "Demo",
-      dependencies: ["HLS", "HLSDownloader"]),
-    .target(
+      dependencies: ["HLS", "HLSDownloader", "KeyPathKit"]),
+    .executableTarget(
       name: "hls-cli",
       dependencies: [
         "HLS",
@@ -89,7 +88,13 @@ let package = Package(
         .product(name: "AsyncHTTPClientProxy", package: "ProxyInfo"),
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ]),
-    .target(
+    .executableTarget(
+      name: "hls-parser",
+      dependencies: [
+        "HLS",
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+      ]),
+    .executableTarget(
       name: "tver-cli",
       dependencies: [
         "MPD",
